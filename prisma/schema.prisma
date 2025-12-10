@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Product {
+  id           String  @id
+  productCd    String
+  name         String
+  cost         Int
+  unit         String  @default("P")
+  supplierName String
+  supplierCd   String?
+  spec         String?
+  storageType  String?
+  createdAt    String
+  updatedAt    String
+  imageUrls    Json
+  departments  Json
+  photos       PhotoRecord[]
+}
+
+model InventorySession {
+  id             String         @id
+  inventoryDate  String
+  monthKey       String   @default("")
+  department     String
+  staff1         String
+  staff2         String
+  isLocked       Boolean  @default(false)
+  isCurrent      Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime?
+  photoRecords   PhotoRecord[]
+
+  @@unique([department, monthKey])
+}
+
+model PhotoRecord {
+  id              String   @id
+  imageUrl        String
+  imageUrls       Json     @default("[]")
+  quantity        Float?
+  quantityFormula String?
+  unitCost        Float?
+  unit            String   @default("P")
+  status          String
+  productId       String?
+  product         Product? @relation(fields: [productId], references: [id])
+  takenAt         String
+  sessionId       String
+  session         InventorySession @relation(fields: [sessionId], references: [id])
+  department      String   @default("")
+  inventoryDate   String   @default("")
+
+  @@index([department, inventoryDate])
+}
+
+model Department {
+  name String @id
+}
+
+model StaffMember {
+  name String @id
+}
+
+model Supplier {
+  name String @id
+}
