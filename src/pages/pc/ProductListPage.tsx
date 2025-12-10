@@ -83,7 +83,7 @@ export function ProductListPage() {
         title="商品マスタ"
         rightSlot={
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => navigate('/pc/assign')}>
+            <Button variant="ghost" onClick={() => navigate('/assign')}>
               割当一覧へ
             </Button>
             <Button onClick={openNew}>商品登録</Button>

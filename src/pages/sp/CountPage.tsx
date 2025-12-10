@@ -22,7 +22,7 @@ export function CountPage() {
     (photo?.imageUrls && photo.imageUrls.length ? photo.imageUrls : photo ? [photo.imageUrl] : []) ?? [];
 
   useEffect(() => {
-    if (!session) navigate('/sp/start');
+    if (!session) navigate('/start');
   }, [navigate, session]);
 
   if (!session || !photo || !photoId) return null;
@@ -31,13 +31,13 @@ export function CountPage() {
     if (locked) return;
     // 数量と計算式を保存する
     updateQuantity(photoId, Number(value.toFixed(2)), formulaRef.current);
-    navigate('/sp/list');
+    navigate('/list');
   };
 
   const handleCancel = () => {
     if (locked) return;
     deletePhoto(photoId);
-    navigate('/sp/list');
+    navigate('/list');
   };
 
   const handleRemoveImage = (idx: number) => {

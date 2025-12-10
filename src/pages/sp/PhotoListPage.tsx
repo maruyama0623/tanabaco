@@ -11,7 +11,7 @@ export function PhotoListPage() {
   const session = useSessionStore((s) => s.session);
 
   useEffect(() => {
-    if (!session) navigate('/sp/start');
+    if (!session) navigate('/start');
   }, [navigate, session]);
 
   if (!session) return null;
@@ -37,7 +37,7 @@ export function PhotoListPage() {
               key={photo.id}
               photo={photo}
               disabled={locked}
-              onClick={() => navigate(`/sp/count/${photo.id}`)}
+              onClick={() => navigate(`/count/${photo.id}`)}
             />
           ))}
           {!session.photoRecords.length && (
@@ -49,7 +49,7 @@ export function PhotoListPage() {
       </div>
       <div className="fixed bottom-0 left-0 right-0 bg-white px-4 pb-6 pt-2 shadow-[0_-8px_16px_-12px_rgba(0,0,0,0.2)]">
         <div className="w-full px-3 md:px-6">
-          <Button block onClick={() => navigate('/sp/camera')} disabled={locked}>
+          <Button block onClick={() => navigate('/camera')} disabled={locked}>
             写真を撮る
           </Button>
         </div>

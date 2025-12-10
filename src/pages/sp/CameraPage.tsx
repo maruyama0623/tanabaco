@@ -15,7 +15,7 @@ export function CameraPage() {
 
   useEffect(() => {
     if (!session) {
-      navigate('/sp/start');
+      navigate('/start');
       return;
     }
     if (session.isLocked) return;
@@ -37,7 +37,7 @@ export function CameraPage() {
   };
 
   if (!session) {
-    navigate('/sp/start');
+    navigate('/start');
     return null;
   }
 
@@ -50,9 +50,9 @@ export function CameraPage() {
     const photo = addPhoto(captures);
     setCaptures([]);
     if (photo) {
-      navigate(`/sp/count/${photo.id}`);
+      navigate(`/count/${photo.id}`);
     } else {
-      navigate('/sp/list');
+      navigate('/list');
     }
   };
 
@@ -82,7 +82,7 @@ export function CameraPage() {
               <button
                 type="button"
                 className="absolute right-2 top-2 z-10 h-9 w-9 rounded-full bg-black/70 text-2xl font-bold text-white shadow"
-                onClick={() => navigate('/sp/list')}
+                onClick={() => navigate('/list')}
                 aria-label="閉じる"
               >
                 ×

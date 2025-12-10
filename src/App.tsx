@@ -16,23 +16,27 @@ import { SupplierListPage } from './pages/pc/SupplierListPage';
 function App() {
   return (
     <Routes>
-      <Route path="/sp/start" element={<StartPage />} />
-      <Route path="/sp/list" element={<PhotoListPage />} />
-      <Route path="/sp/camera" element={<CameraPage />} />
-      <Route path="/sp/count/:photoId" element={<CountPage />} />
+      <Route path="/start" element={<StartPage />} />
+      <Route path="/list" element={<PhotoListPage />} />
+      <Route path="/camera" element={<CameraPage />} />
+      <Route path="/count/:photoId" element={<CountPage />} />
 
-      <Route path="/pc/assign" element={<AssignListPage />}>
+      <Route path="/assign" element={<AssignListPage />}>
         <Route path="modal/:photoId" element={<AssignModal />} />
       </Route>
-      <Route path="/pc/assigned" element={<AssignedDetailPage />} />
-      <Route path="/pc/report" element={<ReportPage />} />
-      <Route path="/pc/products" element={<ProductListPage />} />
-      <Route path="/pc/masters" element={<MasterPage />} />
-      <Route path="/pc/departments" element={<DepartmentListPage />} />
-      <Route path="/pc/staff" element={<StaffListPage />} />
-      <Route path="/pc/suppliers" element={<SupplierListPage />} />
+      <Route path="/assigned" element={<AssignedDetailPage />} />
+      <Route path="/report" element={<ReportPage />} />
+      <Route path="/products" element={<ProductListPage />} />
+      <Route path="/masters" element={<MasterPage />} />
+      <Route path="/departments" element={<DepartmentListPage />} />
+      <Route path="/staff" element={<StaffListPage />} />
+      <Route path="/suppliers" element={<SupplierListPage />} />
 
-      <Route path="*" element={<Navigate to="/sp/start" replace />} />
+      {/* legacy paths for compatibility */}
+      <Route path="/sp/*" element={<Navigate to="/start" replace />} />
+      <Route path="/pc/*" element={<Navigate to="/assign" replace />} />
+
+      <Route path="*" element={<Navigate to="/start" replace />} />
     </Routes>
   );
 }

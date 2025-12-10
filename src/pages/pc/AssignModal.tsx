@@ -48,7 +48,7 @@ export function AssignModal() {
 
   const locked = session?.isLocked;
 
-  const close = () => navigate('/pc/assign');
+  const close = () => navigate('/assign');
 
   if (!photo) return null;
 
@@ -72,7 +72,7 @@ export function AssignModal() {
     const product = products.find((p) => p.id === targetId);
     if (photoId && targetId) {
       assignProduct(photoId, targetId, product?.cost, product?.unit);
-      navigate('/pc/assign');
+      navigate('/assign');
     }
   };
 

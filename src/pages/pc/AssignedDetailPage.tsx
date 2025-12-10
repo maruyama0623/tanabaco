@@ -17,7 +17,7 @@ export function AssignedDetailPage() {
   );
 
   if (!session || !firstAssigned) {
-    navigate('/pc/assign');
+    navigate('/assign');
     return null;
   }
 
@@ -38,12 +38,12 @@ export function AssignedDetailPage() {
           </div>
           <div className="text-4xl font-bold text-primary">{firstAssigned.quantity}</div>
           <div className="flex gap-3">
-            <Button onClick={() => navigate(`/pc/assign/modal/${firstAssigned.id}`)}>変更する</Button>
+            <Button onClick={() => navigate(`/assign/modal/${firstAssigned.id}`)}>変更する</Button>
             <Button
               variant="secondary"
               onClick={() => {
                 deletePhoto(firstAssigned.id);
-                navigate('/pc/assign');
+                navigate('/assign');
               }}
             >
               削除する

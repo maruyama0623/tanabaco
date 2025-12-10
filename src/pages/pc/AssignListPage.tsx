@@ -58,7 +58,7 @@ export function AssignListPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
 
   useEffect(() => {
-    if (!session && history.length === 0) navigate('/sp/start');
+    if (!session && history.length === 0) navigate('/start');
   }, [history.length, navigate, session]);
 
   useEffect(() => {
@@ -135,8 +135,8 @@ export function AssignListPage() {
           });
 
   const openModal = (id: string) => navigate(`/pc/assign/modal/${id}`);
-  const goReport = () => navigate('/pc/report');
-  const goProducts = () => navigate('/pc/products');
+  const goReport = () => navigate('/report');
+  const goProducts = () => navigate('/products');
   const locked = activeSession?.isLocked;
 
   return (
@@ -236,7 +236,7 @@ export function AssignListPage() {
               product={products.find((p) => p.id === photo.productId)}
               onAssign={() => openModal(photo.id)}
               onDelete={() => deletePhoto(photo.id)}
-              onEditQuantity={() => navigate(`/sp/count/${photo.id}`)}
+              onEditQuantity={() => navigate(`/count/${photo.id}`)}
               disabled={locked}
             />
           ))}

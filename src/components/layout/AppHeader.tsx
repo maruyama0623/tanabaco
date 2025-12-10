@@ -10,13 +10,13 @@ export function AppHeader({ title, rightSlot }: Props) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const menuItems = [
-    { label: '棚卸開始', to: '/sp/start' },
-    { label: '商品割り当て', to: '/pc/assign' },
-    { label: '棚卸表', to: '/pc/report' },
-    { label: '商品一覧', to: '/pc/products' },
-    { label: '事業部一覧', to: '/pc/departments' },
-    { label: '担当者一覧', to: '/pc/staff' },
-    { label: '仕入先一覧', to: '/pc/suppliers' },
+    { label: '棚卸開始', to: '/start' },
+    { label: '商品割り当て', to: '/assign' },
+    { label: '棚卸表', to: '/report' },
+    { label: '商品一覧', to: '/products' },
+    { label: '事業部一覧', to: '/departments' },
+    { label: '担当者一覧', to: '/staff' },
+    { label: '仕入先一覧', to: '/suppliers' },
   ];
 
   const handleNavigate = (to: string) => {
@@ -39,7 +39,7 @@ export function AppHeader({ title, rightSlot }: Props) {
               <span className="block h-0.5 w-5 bg-black" />
             </div>
           </button>
-          <Link to="/sp/start" className="flex items-center gap-2">
+          <Link to="/start" className="flex items-center gap-2">
             <img src="/logo.svg" alt="ソトバコロゴ" className="h-8 w-auto" />
           </Link>
           {title && <span className="ml-3 hidden text-lg font-semibold md:inline">{title}</span>}

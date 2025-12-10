@@ -38,7 +38,7 @@ export function StartPage() {
 
   const handleSubmit = () => {
     startSession({ inventoryDate, department, staff1, staff2 });
-    navigate('/sp/list');
+    navigate('/list');
   };
 
   return (

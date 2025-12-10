@@ -24,7 +24,7 @@ export function ReportPage() {
   const [lockConfirmOpen, setLockConfirmOpen] = useState(false);
 
   if (!session) {
-    navigate('/sp/start');
+    navigate('/start');
     return null;
   }
 
@@ -94,10 +94,6 @@ export function ReportPage() {
   }, [selectedMonth]);
   const prevSession = findSessionByMonth(prevMonthKey);
   const isLocked = currentSession?.isLocked;
-  const displayMonthWithDate =
-    currentSession && currentSession.inventoryDate
-      ? `${toMonthKey(currentSession.inventoryDate)}（${normalizeInventoryDate(currentSession.inventoryDate)}）`
-      : `${selectedMonth}（${toMonthEndDate(selectedMonth)}）`;
 
   const handleLock = async () => {
     if (!currentSession) return;
@@ -338,7 +334,7 @@ export function ReportPage() {
                       <Button
                         size="sm"
                         onClick={() =>
-                          navigate('/pc/assign', {
+                          navigate('/assign', {
                             state: {
                               tab: 'assigned',
                               productId: row.product.id,
@@ -425,7 +421,7 @@ export function ReportPage() {
                     size="sm"
                     className="flex-1"
                     onClick={() =>
-                      navigate('/pc/assign', {
+                      navigate('/assign', {
                         state: {
                           tab: 'assigned',
                           productId: row.product.id,
