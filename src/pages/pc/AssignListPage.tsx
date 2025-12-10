@@ -8,7 +8,6 @@ import { PhotoCardDesktop } from '../../components/desktop/PhotoCardDesktop';
 import { PhotoRecord, Product } from '../../types';
 import {
   defaultDisplayMonthKey,
-  normalizeInventoryDate,
   toMonthEndDate,
   toMonthKey,
 } from '../../utils/date';

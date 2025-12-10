@@ -93,10 +93,11 @@ export function ReportPage() {
     return `${prevDate.getFullYear()}-${mm}`;
   }, [selectedMonth]);
   const prevSession = findSessionByMonth(prevMonthKey);
-  const currentInventoryDate =
-    (currentSession && normalizeInventoryDate(currentSession.inventoryDate)) ||
-    toMonthEndDate(selectedMonth);
   const isLocked = currentSession?.isLocked;
+  const displayMonthWithDate =
+    currentSession && currentSession.inventoryDate
+      ? `${toMonthKey(currentSession.inventoryDate)}（${normalizeInventoryDate(currentSession.inventoryDate)}）`
+      : `${selectedMonth}（${toMonthEndDate(selectedMonth)}）`;
 
   const handleLock = async () => {
     if (!currentSession) return;
@@ -223,6 +224,7 @@ export function ReportPage() {
               ))}
             </select>
           </div>
+          <SummaryCard label="表示月（棚卸日）" value={displayMonthWithDate || '-'} full />
           <div className="w-full rounded border border-border bg-muted px-4 py-3 md:w-auto md:min-w-[180px]">
             <div className="text-xs text-gray-500">事業部</div>
             <select
