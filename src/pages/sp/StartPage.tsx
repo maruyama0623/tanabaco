@@ -109,7 +109,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Select({ children, ...rest }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className="w-full rounded border border-border bg-muted px-3 py-3 text-base text-gray-800 outline-none"
+      className="w-full rounded border border-border bg-muted px-3 py-3 text-base text-gray-800 outline-none h-[52px]"
       {...rest}
     >
       {children}
