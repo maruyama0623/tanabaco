@@ -5,11 +5,7 @@ import { Button } from '../../components/common/Button';
 import { useSessionStore } from '../../store/sessionStore';
 import { useProductStore } from '../../store/productStore';
 import { exportCsv } from '../../services/reportService';
-import {
-  normalizeInventoryDate,
-  toMonthEndDate,
-  toMonthKey,
-} from '../../utils/date';
+import { toMonthEndDate, toMonthKey } from '../../utils/date';
 import { formatNumber, formatYen } from '../../utils/number';
 import { Modal } from '../../components/common/Modal';
 
