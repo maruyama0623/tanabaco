@@ -96,13 +96,13 @@ export function ProductListPage() {
             placeholder="商品名で検索"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            className="w-60 rounded border border-border px-3 py-2"
+            className="w-full min-w-[240px] rounded border border-border px-3 py-2 md:w-60"
           />
           <input
             placeholder="仕入先で検索"
             value={supplier}
             onChange={(e) => setSupplier(e.target.value)}
-            className="w-60 rounded border border-border px-3 py-2"
+            className="w-full min-w-[240px] rounded border border-border px-3 py-2 md:w-60"
           />
         </div>
         <div className="overflow-auto border border-border hidden md:block">
@@ -199,16 +199,16 @@ export function ProductListPage() {
       <Modal open={showModal} onClose={() => setShowModal(false)}>
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">{editing ? '商品を編集' : '商品を登録'}</h3>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <LabeledInput
-              label="商品CD"
-              value={draft.productCd}
-              onChange={(e) => setDraft({ ...draft, productCd: e.target.value })}
-            />
+          <div className="flex flex-col gap-3 rounded border border-border p-3">
             <LabeledInput
               label="商品名"
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            />
+            <LabeledInput
+              label="自社管理商品CD"
+              value={draft.productCd}
+              onChange={(e) => setDraft({ ...draft, productCd: e.target.value })}
             />
             <SupplierSelector
               value={draft.supplierName}
@@ -220,7 +220,6 @@ export function ProductListPage() {
               options={departments}
               values={draft.departments}
               onChange={(values) => setDraft({ ...draft, departments: values })}
-              className="md:col-span-2"
             />
             <LabeledInput
               label="規格"
@@ -228,17 +227,25 @@ export function ProductListPage() {
               onChange={(e) => setDraft({ ...draft, spec: e.target.value })}
             />
             <LabeledInput
-              label="単価"
-              type="number"
-              value={draft.cost}
-              onChange={(e) => setDraft({ ...draft, cost: Number(e.target.value) })}
-            />
-            <LabeledInput
               label="単位"
               value={draft.unit}
               onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
               placeholder="例: P, kg, 個"
             />
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-semibold text-gray-700">単価</span>
+              <input
+                inputMode="numeric"
+                value={draft.cost ? draft.cost.toLocaleString('ja-JP') : ''}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/,/g, '');
+                  const num = Number(raw);
+                  if (Number.isNaN(num)) return;
+                  setDraft({ ...draft, cost: num });
+                }}
+                className="rounded border border-border px-3 py-2"
+              />
+            </label>
             <div className="flex flex-col gap-1">
               <span className="text-sm font-semibold text-gray-700">保存区分</span>
               <select
@@ -252,9 +259,9 @@ export function ProductListPage() {
                 <option value="その他">その他</option>
               </select>
             </div>
-            <div className="flex flex-col gap-1 md:col-span-2">
-              <span className="text-sm font-semibold text-gray-700">画像ファイル</span>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-semibold text-gray-700">商品画像</span>
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
                   type="button"
@@ -262,7 +269,7 @@ export function ProductListPage() {
                   onClick={() => fileInputRef.current?.click()}
                   className="border border-border"
                 >
-                  ファイルを選択
+                  画像ファイルを選択
                 </Button>
                 <div className="flex flex-wrap gap-2">
                   {draft.imageUrls.map((img, idx) => (

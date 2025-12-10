@@ -6,7 +6,6 @@ import { useSessionStore } from '../../store/sessionStore';
 import { useProductStore } from '../../store/productStore';
 import { Button } from '../../components/common/Button';
 import { Product } from '../../types';
-import { fileToDataUrl } from '../../services/imageService';
 import { SupplierSelector } from '../../components/common/SupplierSelector';
 import { useMasterStore } from '../../store/masterStore';
 
@@ -24,7 +23,6 @@ export function AssignModal() {
   const [keyword, setKeyword] = useState('');
   const [supplier, setSupplier] = useState('');
   const [tab, setTab] = useState<Tab>('ai');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>({
     productCd: '',
     name: '',
@@ -34,7 +32,13 @@ export function AssignModal() {
     supplierCd: '',
     spec: '',
     storageType: 'その他',
-    imageUrls: [],
+    unit: 'P',
+    imageUrls:
+      photo?.imageUrls && photo.imageUrls.length
+        ? [...photo.imageUrls]
+        : photo
+          ? [photo.imageUrl]
+          : [],
   });
 
   const filtered = useMemo(
@@ -56,13 +60,6 @@ export function AssignModal() {
     const created = addProduct({ ...draft, departments: departmentsToSave });
     setSelected(created.id);
     return created.id;
-  };
-
-  const handleFileSelect = async (files: FileList | null) => {
-    const file = files?.[0];
-    if (!file) return;
-    const url = await fileToDataUrl(file);
-    setDraft((d) => ({ ...d, imageUrls: [...d.imageUrls, url] }));
   };
 
   const handleConfirm = () => {
@@ -169,25 +166,31 @@ export function AssignModal() {
         {tab === 'register' && (
           <section className="space-y-3">
             <h3 className="text-lg font-semibold">商品を登録する</h3>
-            <div className="grid grid-cols-1 gap-2 rounded border border-border p-3 md:grid-cols-2">
-              <input
-                placeholder="商品CD"
-                value={draft.productCd}
-                onChange={(e) => setDraft({ ...draft, productCd: e.target.value })}
-                className="rounded border border-border px-3 py-2"
-              />
-              <input
-                placeholder="商品名"
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                className="rounded border border-border px-3 py-2"
-              />
+            <div className="flex flex-col gap-3 rounded border border-border p-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-semibold text-gray-700">商品名</span>
+                <input
+                  placeholder="商品名"
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  className="rounded border border-border px-3 py-2"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-semibold text-gray-700">自社管理商品CD</span>
+                <input
+                  placeholder="自社管理商品CD"
+                  value={draft.productCd}
+                  onChange={(e) => setDraft({ ...draft, productCd: e.target.value })}
+                  className="rounded border border-border px-3 py-2"
+                />
+              </label>
               <SupplierSelector
                 value={draft.supplierName}
                 onChange={(value) => setDraft({ ...draft, supplierName: value })}
-                className="w-full md:col-span-2"
+                className="w-full"
               />
-              <div className="md:col-span-2">
+              <div>
                 <span className="text-sm font-semibold text-gray-700">対応事業部（複数選択可）</span>
                 <div className="mt-2 flex flex-wrap gap-2 rounded border border-border px-3 py-2">
                   {departments.map((dpt) => (
@@ -212,56 +215,68 @@ export function AssignModal() {
                   )}
                 </div>
               </div>
-              <input
-                placeholder="規格"
-                value={draft.spec}
-                onChange={(e) => setDraft({ ...draft, spec: e.target.value })}
-                className="rounded border border-border px-3 py-2"
-              />
-              <input
-                placeholder="単価"
-                type="number"
-                value={draft.cost}
-                onChange={(e) => setDraft({ ...draft, cost: Number(e.target.value) })}
-                className="rounded border border-border px-3 py-2"
-              />
-              <select
-                value={draft.storageType}
-                onChange={(e) => setDraft({ ...draft, storageType: e.target.value as Product['storageType'] })}
-                className="rounded border border-border px-3 py-2"
-              >
-                <option value="冷凍">冷凍</option>
-                <option value="冷蔵">冷蔵</option>
-                <option value="常温">常温</option>
-                <option value="その他">その他</option>
-              </select>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  type="button"
-                  className="border border-border"
-                  onClick={() => fileInputRef.current?.click()}
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-semibold text-gray-700">規格</span>
+                <input
+                  placeholder="規格"
+                  value={draft.spec}
+                  onChange={(e) => setDraft({ ...draft, spec: e.target.value })}
+                  className="rounded border border-border px-3 py-2"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-semibold text-gray-700">単位</span>
+                <input
+                  placeholder="例: P, 個, kg"
+                  value={draft.unit ?? ''}
+                  onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+                  className="rounded border border-border px-3 py-2"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-semibold text-gray-700">単価</span>
+                <input
+                  placeholder="単価"
+                  inputMode="numeric"
+                  value={draft.cost ? draft.cost.toLocaleString('ja-JP') : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/,/g, '');
+                    const num = Number(raw);
+                    if (Number.isNaN(num)) return;
+                    setDraft({ ...draft, cost: num });
+                  }}
+                  className="rounded border border-border px-3 py-2"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-sm font-semibold text-gray-700">保存区分</span>
+                <select
+                  value={draft.storageType}
+                  onChange={(e) => setDraft({ ...draft, storageType: e.target.value as Product['storageType'] })}
+                  className="rounded border border-border px-3 py-2"
                 >
-                  画像ファイルを選択
-                </Button>
+                  <option value="冷凍">冷凍</option>
+                  <option value="冷蔵">冷蔵</option>
+                  <option value="常温">常温</option>
+                  <option value="その他">その他</option>
+                </select>
+              </label>
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-semibold text-gray-700">棚卸写真</span>
                 <div className="flex flex-wrap gap-2">
-                  {draft.imageUrls.map((img, idx) => (
+                  {(draft.imageUrls ?? []).map((img, idx) => (
+                  <div key={idx} className="relative">
                     <img
-                      key={idx}
                       src={img}
                       alt="preview"
-                      className="h-12 w-16 rounded border border-border object-cover"
+                      className="h-14 w-18 rounded border border-border object-cover"
                     />
-                  ))}
+                  </div>
+                ))}
+                {!(draft.imageUrls ?? []).length && (
+                  <span className="text-sm text-gray-500">棚卸写真が自動で添付されます</span>
+                )}
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => handleFileSelect(e.target.files)}
-                />
               </div>
             </div>
           </section>

@@ -59,11 +59,6 @@ export function StartPage() {
               </span>
             </div>
           </Field>
-          <Field label="棚卸日（月末）">
-            <div className="rounded border border-border bg-muted px-3 py-3 text-base text-gray-800">
-              {inventoryDate || '日付未設定'}
-            </div>
-          </Field>
           <Field label="事業部">
             <Select value={department} onChange={(e) => setDepartment(e.target.value)}>
               {departments.length ? (

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AppHeader } from '../../components/layout/AppHeader';
 import { NumericPad } from '../../components/mobile/NumericPad';
 import { useSessionStore } from '../../store/sessionStore';
+import { fileToDataUrl } from '../../services/imageService';
 
 export function CountPage() {
   const { photoId } = useParams<{ photoId: string }>();
@@ -12,10 +13,13 @@ export function CountPage() {
   const deletePhoto = useSessionStore((s) => s.deletePhoto);
   const updateImages = useSessionStore((s) => s.updatePhotoImages);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const addImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const photo = session?.photoRecords.find((p) => p.id === photoId);
   const formulaRef = useRef<string | undefined>(photo?.quantityFormula);
   const locked = session?.isLocked;
+  const images =
+    (photo?.imageUrls && photo.imageUrls.length ? photo.imageUrls : photo ? [photo.imageUrl] : []) ?? [];
 
   useEffect(() => {
     if (!session) navigate('/sp/start');
@@ -38,13 +42,20 @@ export function CountPage() {
 
   const handleRemoveImage = (idx: number) => {
     if (locked) return;
-    const imgs = (photo.imageUrls && photo.imageUrls.length ? photo.imageUrls : [photo.imageUrl]) ?? [];
-    const next = imgs.filter((_, i) => i !== idx);
+    const next = images.filter((_, i) => i !== idx);
     if (!next.length) {
       handleCancel();
       return;
     }
     updateImages(photoId, next);
+  };
+
+  const handleAddImage = async (fileList: FileList | null) => {
+    if (locked || !photo || !fileList?.[0]) return;
+    const dataUrl = await fileToDataUrl(fileList[0]);
+    const next = [...images, dataUrl];
+    updateImages(photoId, next);
+    if (addImageInputRef.current) addImageInputRef.current.value = '';
   };
 
   return (
@@ -57,7 +68,7 @@ export function CountPage() {
           </div>
         )}
         <div className="mb-4 grid grid-cols-3 gap-2 md:mb-0 md:w-1/2 md:max-w-[520px]">
-          {(photo.imageUrls && photo.imageUrls.length ? photo.imageUrls : [photo.imageUrl]).map((img, idx) => (
+          {images.map((img, idx) => (
             <div key={idx} className="relative aspect-square overflow-hidden rounded border cursor-pointer">
               <img
                 src={img}
@@ -83,6 +94,23 @@ export function CountPage() {
               </button>
             </div>
           ))}
+          {!locked && (
+            <button
+              type="button"
+              onClick={() => addImageInputRef.current?.click()}
+              className="flex aspect-square items-center justify-center rounded border-2 border-dashed border-border text-3xl font-bold text-gray-400 hover:border-primary hover:text-primary"
+            >
+              +
+            </button>
+          )}
+          <input
+            ref={addImageInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => handleAddImage(e.target.files)}
+          />
         </div>
         <div className="md:w-[380px]">
           <NumericPad
@@ -117,25 +145,23 @@ export function CountPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <img
-              src={(photo.imageUrls && photo.imageUrls.length ? photo.imageUrls : [photo.imageUrl])[previewIdx]}
+              src={images[previewIdx]}
               alt="preview"
               className="max-h-[70vh] w-full max-w-4xl rounded object-contain shadow-2xl"
             />
-            {(photo.imageUrls?.length ?? 1) > 1 && (
+            {images.length > 1 && (
               <div className="flex flex-wrap justify-center gap-2">
-                {(photo.imageUrls && photo.imageUrls.length ? photo.imageUrls : [photo.imageUrl]).map(
-                  (thumb, i) => (
-                    <button
-                      key={thumb + i}
-                      onClick={() => setPreviewIdx(i)}
-                      className={`h-16 w-20 overflow-hidden rounded border ${
-                        i === previewIdx ? 'border-primary ring-2 ring-primary/60' : 'border-white/40'
-                      }`}
-                    >
-                      <img src={thumb} alt={`thumb-${i}`} className="h-full w-full object-cover" />
-                    </button>
-                  ),
-                )}
+                {images.map((thumb, i) => (
+                  <button
+                    key={thumb + i}
+                    onClick={() => setPreviewIdx(i)}
+                    className={`h-16 w-20 overflow-hidden rounded border ${
+                      i === previewIdx ? 'border-primary ring-2 ring-primary/60' : 'border-white/40'
+                    }`}
+                  >
+                    <img src={thumb} alt={`thumb-${i}`} className="h-full w-full object-cover" />
+                  </button>
+                ))}
               </div>
             )}
           </div>

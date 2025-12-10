@@ -84,6 +84,14 @@ export function CameraPage() {
         {captures.length > 0 && (
           <>
             <div className="relative w-full overflow-hidden rounded border border-border bg-black">
+              <button
+                type="button"
+                className="absolute right-2 top-2 z-10 h-9 w-9 rounded-full bg-black/70 text-2xl font-bold text-white shadow"
+                onClick={() => navigate('/sp/list')}
+                aria-label="閉じる"
+              >
+                ×
+              </button>
               <div className="grid grid-cols-3 gap-2 bg-black p-2">
                 {captures.map((src, idx) => (
                   <div key={idx} className="relative aspect-square overflow-hidden rounded border border-white/30">
@@ -108,14 +116,15 @@ export function CameraPage() {
                 </span>
               )}
             </div>
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={handleRetake} className="flex-1">
-                再撮影
-              </Button>
+            <div className="flex flex-col gap-2 md:flex-row">
               <Button variant="secondary" onClick={handleAddMore} className="flex-1">
                 もう1枚撮影
               </Button>
-              <Button onClick={handleConfirm} className="flex-1" disabled={session.isLocked}>
+              <Button
+                onClick={handleConfirm}
+                className="flex-1 bg-primary text-lg font-bold hover:bg-primary/90"
+                disabled={session.isLocked}
+              >
                 写真を使用
               </Button>
             </div>
@@ -126,9 +135,6 @@ export function CameraPage() {
             カメラを起動する
           </Button>
         )}
-        <Button variant="secondary" onClick={() => navigate('/sp/list')} block>
-          一覧に戻る
-        </Button>
       </div>
     </div>
   );
