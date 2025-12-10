@@ -209,8 +209,8 @@ export function ReportPage() {
         rightSlot={<Button onClick={() => exportCsv(rows)}>CSV</Button>}
       />
       <div className="px-4 py-4 md:px-6">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="w-full rounded border border-border bg-muted px-4 py-3 md:w-auto md:min-w-[180px]">
+        <div className="mb-4 grid grid-cols-1 items-stretch gap-3 md:grid-cols-5">
+          <div className="w-full rounded border border-border bg-muted px-4 py-3">
             <div className="text-xs text-gray-500">表示月（棚卸日）</div>
             <select
               className="w-full bg-transparent text-lg font-semibold outline-none"
@@ -224,8 +224,7 @@ export function ReportPage() {
               ))}
             </select>
           </div>
-          <SummaryCard label="表示月（棚卸日）" value={displayMonthWithDate || '-'} full />
-          <div className="w-full rounded border border-border bg-muted px-4 py-3 md:w-auto md:min-w-[180px]">
+          <div className="w-full rounded border border-border bg-muted px-4 py-3">
             <div className="text-xs text-gray-500">事業部</div>
             <select
               className="w-full bg-transparent text-lg font-semibold outline-none"
@@ -447,11 +446,11 @@ export function ReportPage() {
           )}
         </div>
       </div>
-      <div className="fixed bottom-0 left-0 right-0 bg-white px-4 pb-4 pt-2 shadow-[0_-8px_16px_-12px_rgba(0,0,0,0.2)] md:static md:pb-10 md:shadow-none">
+      <div className="fixed bottom-0 left-0 right-0 bg-white px-4 pb-4 pt-3 shadow-[0_-8px_16px_-12px_rgba(0,0,0,0.2)]">
         <div className="mx-auto w-full max-w-5xl">
           <Button
             onClick={() => setLockConfirmOpen(true)}
-            className="w-full md:min-w-[160px] md:w-auto"
+            className="w-full rounded-lg px-6 py-3 text-base font-semibold"
             disabled={!currentSession || isLocked}
           >
             {isLocked ? '確定済み' : '棚卸完了する'}
