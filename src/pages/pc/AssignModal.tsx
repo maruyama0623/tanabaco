@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Modal } from '../../components/common/Modal';
 import { ProductCard } from '../../components/desktop/ProductCard';

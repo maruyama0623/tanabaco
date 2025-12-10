@@ -41,11 +41,6 @@ export function CameraPage() {
     return null;
   }
 
-  const handleRetake = () => {
-    setCaptures((prev) => prev.slice(0, -1));
-    if (!session?.isLocked) inputRef.current?.click();
-  };
-
   const handleAddMore = () => {
     if (!session?.isLocked) inputRef.current?.click();
   };
