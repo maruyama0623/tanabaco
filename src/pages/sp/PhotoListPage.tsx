@@ -24,7 +24,7 @@ export function PhotoListPage() {
         <TopInfoBar
           inventoryDate={session.inventoryDate}
           department={session.department}
-          className="flex gap-2 px-0 py-2"
+          className="flex flex-col gap-2 px-0 py-2 md:flex-row"
         />
         {locked && (
           <div className="mb-3 rounded border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700">
