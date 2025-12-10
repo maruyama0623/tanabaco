@@ -134,7 +134,7 @@ export function AssignListPage() {
             return matchKeyword && matchSupplier;
           });
 
-  const openModal = (id: string) => navigate(`/pc/assign/modal/${id}`);
+  const openModal = (id: string) => navigate(`modal/${id}`);
   const goReport = () => navigate('/report');
   const goProducts = () => navigate('/products');
   const locked = activeSession?.isLocked;

@@ -21,7 +21,7 @@ function App() {
       <Route path="/camera" element={<CameraPage />} />
       <Route path="/count/:photoId" element={<CountPage />} />
 
-      <Route path="/assign" element={<AssignListPage />}>
+      <Route path="/assign/*" element={<AssignListPage />}>
         <Route path="modal/:photoId" element={<AssignModal />} />
       </Route>
       <Route path="/assigned" element={<AssignedDetailPage />} />

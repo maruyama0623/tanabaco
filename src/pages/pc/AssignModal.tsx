@@ -15,10 +15,15 @@ export function AssignModal() {
   const navigate = useNavigate();
   const { photoId } = useParams<{ photoId: string }>();
   const session = useSessionStore((s) => s.session);
+  const history = useSessionStore((s) => s.history);
   const assignProduct = useSessionStore((s) => s.assignProduct);
   const { addProduct, search, products } = useProductStore();
   const departments = useMasterStore((s) => s.departments);
-  const photo = session?.photoRecords.find((p) => p.id === photoId) || null;
+  const allPhotos = [
+    ...(session?.photoRecords ?? []),
+    ...history.flatMap((h) => h.photoRecords ?? []),
+  ];
+  const photo = allPhotos.find((p) => p.id === photoId) || null;
   const [selected, setSelected] = useState<string | null>(photo?.productId ?? null);
   const [keyword, setKeyword] = useState('');
   const [supplier, setSupplier] = useState('');
