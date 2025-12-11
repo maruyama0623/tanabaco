@@ -50,6 +50,10 @@ model PhotoRecord {
   unit            String   @default("P")
   status          String
   productId       String?
+  productName     String?
+  productCd       String?
+  productSupplierName String?
+  productStorageType String?
   product         Product? @relation(fields: [productId], references: [id])
   takenAt         String
   sessionId       String
