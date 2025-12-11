@@ -26,12 +26,22 @@ export function PhotoCardDesktop({
     }
   };
   const images = photo.imageUrls && photo.imageUrls.length ? photo.imageUrls : [photo.imageUrl];
+  const hasImage = Boolean(images[0]);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
 
   return (
     <div className="flex min-w-[240px] flex-col gap-2 rounded border border-border bg-white p-3 shadow-sm">
-      <div className="aspect-[4/3] overflow-hidden rounded cursor-pointer" onClick={() => setPreviewIdx(0)}>
-        <img src={images[0]} alt="photo" className="h-full w-full object-cover" />
+      <div
+        className="relative aspect-[4/3] overflow-hidden rounded cursor-pointer"
+        onClick={() => hasImage && setPreviewIdx(0)}
+      >
+        {hasImage ? (
+          <img src={images[0]} alt="photo" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gray-100 text-sm text-gray-500">
+            棚卸表で追加（画像なし）
+          </div>
+        )}
       </div>
       {product && (
         <div className="flex flex-col gap-1">

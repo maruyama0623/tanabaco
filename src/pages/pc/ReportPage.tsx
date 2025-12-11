@@ -4,6 +4,7 @@ import { AppHeader } from '../../components/layout/AppHeader';
 import { Button } from '../../components/common/Button';
 import { useSessionStore } from '../../store/sessionStore';
 import { useProductStore } from '../../store/productStore';
+import { useMasterStore } from '../../store/masterStore';
 import { exportCsv } from '../../services/reportService';
 import { toMonthEndDate, toMonthKey } from '../../utils/date';
 import { formatNumber, formatYen } from '../../utils/number';
@@ -20,6 +21,8 @@ export function ReportPage() {
   const updateUnitCost = useSessionStore((s) => s.updateUnitCost);
   const updateProduct = useProductStore((s) => s.updateProduct);
   const addManualRecord = useSessionStore((s) => s.addManualRecord);
+  const startSession = useSessionStore((s) => s.startSession);
+  const masterDepts = useMasterStore((s) => s.departments);
   const [lockConfirmOpen, setLockConfirmOpen] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showDesktopMenu, setShowDesktopMenu] = useState(false);
@@ -47,31 +50,21 @@ export function ReportPage() {
     unit: 'P',
   });
 
-  const availableDepartments = useMemo(() => {
-    const set = new Set<string>();
-    if (session) set.add(session.department);
-    history.forEach((h) => set.add(h.department));
-    return Array.from(set);
-  }, [history, session]);
+  const allSessions = useMemo(
+    () => [...(session ? [session] : []), ...history],
+    [session, history],
+  );
 
-  const [selectedDept, setSelectedDept] = useState<string>(session?.department ?? history[0]?.department ?? '');
-
-  useEffect(() => {
-    if (!availableDepartments.includes(selectedDept) && availableDepartments.length) {
-      setSelectedDept(availableDepartments[0]);
-    }
-  }, [availableDepartments, selectedDept]);
+  const sessionsWithPhotos = useMemo(
+    () => allSessions.filter((s) => (s.photoRecords ?? []).length > 0),
+    [allSessions],
+  );
 
   const months = useMemo(() => {
     const set = new Set<string>();
-    if (session && session.department === selectedDept) {
-      set.add(toMonthKey(session.inventoryDate));
-    }
-    history
-      .filter((h) => h.department === selectedDept)
-      .forEach((h) => set.add(toMonthKey(h.inventoryDate)));
+    allSessions.forEach((s) => set.add(toMonthKey(s.inventoryDate)));
     return Array.from(set).sort().reverse();
-  }, [history, selectedDept, session]);
+  }, [allSessions]);
 
   const previousMonthKey = useMemo(() => {
     const now = new Date();
@@ -81,54 +74,65 @@ export function ReportPage() {
     return `${y}-${m}`;
   }, []);
 
+  const displayMonths = months.length ? months : [previousMonthKey];
+
   const initialMonth = useMemo(
-    () => (months.includes(previousMonthKey) ? previousMonthKey : months[0] ?? previousMonthKey),
-    [months, previousMonthKey],
+    () =>
+      displayMonths.includes(previousMonthKey)
+        ? previousMonthKey
+        : displayMonths[0] ?? previousMonthKey,
+    [displayMonths, previousMonthKey],
   );
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
 
   useEffect(() => {
-    if (!months.length) return;
-    if (!months.includes(selectedMonth)) {
-      const fallback = months.includes(previousMonthKey) ? previousMonthKey : months[0];
+    if (!displayMonths.includes(selectedMonth)) {
+      const fallback = displayMonths[0];
       if (fallback) setSelectedMonth(fallback);
     }
-  }, [months, selectedMonth, previousMonthKey]);
+  }, [displayMonths, selectedMonth]);
 
-  const findSessionByMonth = (month: string) => {
-    if (
-      session &&
-      session.department === selectedDept &&
-      toMonthKey(session.inventoryDate) === month
-    ) {
-      return session;
+  const monthDepartments = useMemo(() => {
+    const set = new Set<string>();
+    sessionsWithPhotos
+      .filter((s) => toMonthKey(s.inventoryDate) === selectedMonth)
+      .forEach((s) => set.add(s.department));
+    return Array.from(set);
+  }, [sessionsWithPhotos, selectedMonth]);
+
+  const deptOptions = useMemo(
+    () => Array.from(new Set<string>([...monthDepartments, ...masterDepts])),
+    [masterDepts, monthDepartments],
+  );
+
+  const [selectedDept, setSelectedDept] = useState<string>(
+    session?.department ?? history[0]?.department ?? deptOptions[0] ?? '',
+  );
+
+  useEffect(() => {
+    if (deptOptions.length && !deptOptions.includes(selectedDept)) {
+      setSelectedDept(deptOptions[0]);
     }
+  }, [deptOptions, selectedDept]);
+
+  const findSessionByMonth = (month: string, dept?: string) => {
     return (
-      history.find(
-        (h) => h.department === selectedDept && toMonthKey(h.inventoryDate) === month,
-      ) || null
+      allSessions.find(
+        (s) =>
+          (!dept || s.department === dept) &&
+          toMonthKey(s.inventoryDate) === month,
+      ) ?? null
     );
   };
 
-  if (!session && history.length === 0) {
-    return (
-      <div className="min-h-screen bg-white">
-        <AppHeader title="棚卸表" />
-        <div className="flex flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-gray-600">
-          <p>表示できる棚卸データがありません。棚卸開始から登録してください。</p>
-          <Button onClick={() => navigate('/start')}>棚卸開始へ</Button>
-        </div>
-      </div>
-    );
-  }
-  const currentSession = findSessionByMonth(selectedMonth);
+  const currentSession = findSessionByMonth(selectedMonth, selectedDept);
   const prevMonthKey = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number);
     const prevDate = new Date(y, (m || 1) - 2, 1);
     const mm = String(prevDate.getMonth() + 1).padStart(2, '0');
     return `${prevDate.getFullYear()}-${mm}`;
   }, [selectedMonth]);
-  const prevSession = findSessionByMonth(prevMonthKey);
+  const prevSession = findSessionByMonth(prevMonthKey, selectedDept);
   const isLocked = currentSession?.isLocked;
 
   const handleLock = async () => {
@@ -299,11 +303,21 @@ export function ReportPage() {
   }, [productChoices, products, selectedProductId]);
 
   const handleAddManual = () => {
-    if (!currentSession || !selectedProductId || addQty <= 0) return;
+    if (!selectedProductId || addQty <= 0) return;
     const selectedProd = products.find((p) => p.id === selectedProductId);
     if (selectedProd && addUnitCost !== selectedProd.cost) {
       updateProduct(selectedProd.id, { cost: addUnitCost });
     }
+    // セッションがない場合は選択中の月・事業部で暫定セッションを作成
+    const baseSession =
+      currentSession ||
+      startSession({
+        inventoryDate: `${selectedMonth}-01`,
+        department: selectedDept || selectedProd?.departments?.[0] || masterDepts[0] || '',
+        staff1: session?.staff1 ?? '',
+        staff2: session?.staff2 ?? '',
+      });
+    if (!baseSession) return;
     addManualRecord({
       productId: selectedProductId,
       quantity: addQty,
@@ -428,7 +442,7 @@ export function ReportPage() {
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
             >
-              {months.map((m) => (
+              {displayMonths.map((m) => (
                 <option key={m} value={m}>
                   {m}（{toMonthEndDate(m)}）
                 </option>
@@ -442,7 +456,7 @@ export function ReportPage() {
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
             >
-              {availableDepartments.map((d) => (
+              {deptOptions.map((d) => (
                 <option key={d} value={d}>
                   {d}
                 </option>
