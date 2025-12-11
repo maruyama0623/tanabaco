@@ -5,7 +5,8 @@ import { PrismaClient, Prisma } from '@prisma/client';
 const prisma = new PrismaClient();
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '20mb' }));
+// 画像(Base64)を含むリクエストが大きくなるため余裕を持たせる
+app.use(express.json({ limit: '100mb' }));
 
 const mapProduct = (p: Prisma.ProductUncheckedCreateInput) => {
   const { imageUrl: _legacy, ...rest } = p as any;
