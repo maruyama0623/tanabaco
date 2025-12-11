@@ -8,7 +8,7 @@ import { exportCsv } from '../../services/reportService';
 import { toMonthEndDate, toMonthKey } from '../../utils/date';
 import { formatNumber, formatYen } from '../../utils/number';
 import { Modal } from '../../components/common/Modal';
-import { Product } from '../../types';
+import { Product, PhotoRecord } from '../../types';
 
 export function ReportPage() {
   const navigate = useNavigate();
@@ -156,7 +156,7 @@ export function ReportPage() {
     updateUnitCost(productId, cost);
   };
 
-  const aggregate = (photos: typeof session.photoRecords | undefined) => {
+  const aggregate = (photos: PhotoRecord[] | undefined) => {
     const map = new Map<
       string,
       {
@@ -705,7 +705,6 @@ export function ReportPage() {
                         onChange={() => {
                           setSelectedProductId(p.id);
                           setAddUnitCost(p.cost);
-                          setAddUnit(p.unit ?? 'P');
                         }}
                       />
                       <div className="flex flex-col">

@@ -32,30 +32,33 @@ export function AssignModal() {
   const [supplier, setSupplier] = useState('');
   const [tab, setTab] = useState<Tab>(existingProduct ? 'register' : 'ai');
   const [draft, setDraft] = useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>(() => {
-    const base = existingProduct
-      ? {
-          ...existingProduct,
-          imageUrls: [...(existingProduct.imageUrls ?? [])],
-          departments: [...(existingProduct.departments ?? [])],
-        }
-      : {
-          productCd: '',
-          name: '',
-          cost: 0,
-          departments: session?.department ? [session.department] : [],
-          supplierName: '',
-          supplierCd: '',
-          spec: '',
-          storageType: 'その他',
-          unit: 'P',
-          imageUrls:
-            photo?.imageUrls && photo.imageUrls.length
-              ? [...photo.imageUrls]
-              : photo
-                ? [photo.imageUrl]
-                : [],
-        };
-    return base;
+    if (existingProduct) {
+      const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = existingProduct;
+      return {
+        ...rest,
+        storageType: (rest.storageType ?? 'その他') as Product['storageType'],
+        unit: rest.unit ?? 'P',
+        imageUrls: [...(rest.imageUrls ?? [])],
+        departments: [...(rest.departments ?? [])],
+      };
+    }
+    return {
+      productCd: '',
+      name: '',
+      cost: 0,
+      departments: session?.department ? [session.department] : [],
+      supplierName: '',
+      supplierCd: '',
+      spec: '',
+      storageType: 'その他' as Product['storageType'],
+      unit: 'P',
+      imageUrls:
+        photo?.imageUrls && photo.imageUrls.length
+          ? [...photo.imageUrls]
+          : photo
+            ? [photo.imageUrl]
+            : [],
+    };
   });
 
   const filtered = useMemo(
@@ -74,7 +77,7 @@ export function AssignModal() {
         supplierName: existingProduct.supplierName,
         supplierCd: existingProduct.supplierCd ?? '',
         spec: existingProduct.spec ?? '',
-        storageType: existingProduct.storageType ?? 'その他',
+        storageType: (existingProduct.storageType ?? 'その他') as Product['storageType'],
         unit: existingProduct.unit ?? 'P',
         imageUrls: [...(existingProduct.imageUrls ?? [])],
       });
