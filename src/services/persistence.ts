@@ -1,10 +1,5 @@
 import { InventorySession, MasterData, Product } from '../types';
 
-const PRODUCT_KEY = 'product-master';
-const SESSION_KEY = 'inventory-session';
-const HISTORY_KEY = 'inventory-history';
-const MASTER_KEY = 'master-data';
-
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:4000/api';
 
 export interface PersistenceProvider {
@@ -18,29 +13,6 @@ export interface PersistenceProvider {
   saveMasters(masters: MasterData): void;
 }
 
-function readJson<T>(key: string): T | null {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    return JSON.parse(raw) as T;
-  } catch (e) {
-    console.error('persistence read error', e);
-    return null;
-  }
-}
-
-function writeJson<T>(key: string, value: T) {
-  try {
-    if (value === null) {
-      localStorage.removeItem(key);
-    } else {
-      localStorage.setItem(key, JSON.stringify(value));
-    }
-  } catch (e) {
-    console.error('persistence write error', e);
-  }
-}
-
 const fetchJson = async (path: string, init?: RequestInit) => {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -49,6 +21,29 @@ const fetchJson = async (path: string, init?: RequestInit) => {
   if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
   return res.json();
 };
+
+const api = {
+  saveProducts: (products: Product[]) =>
+    fetchJson('/products/bulk', { method: 'POST', body: JSON.stringify({ products }) }),
+  saveSession: (session: InventorySession | null) =>
+    fetchJson('/session', { method: 'POST', body: JSON.stringify(withSessionId(session)) }),
+  saveHistory: (history: InventorySession[]) =>
+    fetchJson('/history', {
+      method: 'POST',
+      body: JSON.stringify(withSessionIdHistory(history)),
+    }),
+  saveMasters: (masters: MasterData) =>
+    fetchJson('/masters', { method: 'POST', body: JSON.stringify(masters) }),
+  getProducts: () => fetchJson('/products'),
+  getSession: () => fetchJson('/session'),
+  getHistory: () => fetchJson('/history'),
+  getMasters: () => fetchJson('/masters'),
+};
+
+let cacheProducts: Product[] = [];
+let cacheSession: InventorySession | null = null;
+let cacheHistory: InventorySession[] = [];
+let cacheMasters: MasterData | null = null;
 
 const withSessionId = (session: InventorySession | null) => {
   if (!session) return null;
@@ -74,56 +69,38 @@ const withSessionIdHistory = (history: InventorySession[]) =>
     })),
   }));
 
-const api = {
-  saveProducts: (products: Product[]) =>
-    fetchJson('/products/bulk', { method: 'POST', body: JSON.stringify({ products }) }),
-  saveSession: (session: InventorySession | null) =>
-    fetchJson('/session', { method: 'POST', body: JSON.stringify(withSessionId(session)) }),
-  saveHistory: (history: InventorySession[]) =>
-    fetchJson('/history', {
-      method: 'POST',
-      body: JSON.stringify(withSessionIdHistory(history)),
-    }),
-  saveMasters: (masters: MasterData) =>
-    fetchJson('/masters', { method: 'POST', body: JSON.stringify(masters) }),
-  getProducts: () => fetchJson('/products'),
-  getSession: () => fetchJson('/session'),
-  getHistory: () => fetchJson('/history'),
-  getMasters: () => fetchJson('/masters'),
-};
-
-export const localPersistence: PersistenceProvider = {
+export const apiPersistence: PersistenceProvider = {
   getProducts() {
-    return readJson<Product[]>(PRODUCT_KEY) ?? [];
+    return cacheProducts;
   },
   saveProducts(products) {
-    writeJson(PRODUCT_KEY, products);
+    cacheProducts = products;
     void api.saveProducts(products).catch((e) => console.warn('api saveProducts error', e));
   },
   getSession() {
-    return readJson<InventorySession>(SESSION_KEY);
+    return cacheSession;
   },
   saveSession(session) {
-    writeJson(SESSION_KEY, session);
+    cacheSession = session;
     void api.saveSession(session).catch((e) => console.warn('api saveSession error', e));
   },
   getHistory() {
-    return readJson<InventorySession[]>(HISTORY_KEY) ?? [];
+    return cacheHistory;
   },
   saveHistory(history) {
-    writeJson(HISTORY_KEY, history);
+    cacheHistory = history;
     void api.saveHistory(history).catch((e) => console.warn('api saveHistory error', e));
   },
   getMasters() {
-    return readJson<MasterData>(MASTER_KEY);
+    return cacheMasters;
   },
   saveMasters(masters) {
-    writeJson(MASTER_KEY, masters);
+    cacheMasters = masters;
     void api.saveMasters(masters).catch((e) => console.warn('api saveMasters error', e));
   },
 };
 
-export const persistence = localPersistence;
+export const persistence = apiPersistence;
 
 export async function hydratePersistence() {
   try {
@@ -134,31 +111,28 @@ export async function hydratePersistence() {
       api.getMasters().catch(() => null),
     ]);
 
-    const hasRemoteData =
-      (products && (products as Product[]).length) ||
-      (history && (history as InventorySession[]).length) ||
-      session ||
-      (masters && (masters.departments?.length || masters.staffMembers?.length || masters.suppliers?.length));
+    cacheProducts = (products as Product[]) ?? [];
+    cacheSession = (session as InventorySession | null) ?? null;
+    cacheHistory = (history as InventorySession[]) ?? [];
+    cacheMasters = (masters as MasterData | null) ?? null;
 
-    if (hasRemoteData) {
-      if (products) writeJson(PRODUCT_KEY, products);
-      if (session !== undefined) writeJson(SESSION_KEY, session as InventorySession | null);
-      if (history) writeJson(HISTORY_KEY, history);
-      if (masters) writeJson(MASTER_KEY, masters);
-      return;
+    // hydrate zustand stores directly
+    const { useProductStore } = await import('../store/productStore');
+    const { useSessionStore } = await import('../store/sessionStore');
+    const { useMasterStore } = await import('../store/masterStore');
+
+    useProductStore.setState({ products: cacheProducts });
+    useSessionStore.setState({
+      session: cacheSession,
+      history: cacheHistory,
+    });
+    if (cacheMasters) {
+      useMasterStore.setState({
+        departments: cacheMasters.departments ?? [],
+        staffMembers: cacheMasters.staffMembers ?? [],
+        suppliers: cacheMasters.suppliers ?? [],
+      });
     }
-
-    // No remote data -> migrate local storage to API
-    const localProducts = readJson<Product[]>(PRODUCT_KEY) ?? [];
-    const localSession = readJson<InventorySession>(SESSION_KEY);
-    const localHistory = readJson<InventorySession[]>(HISTORY_KEY) ?? [];
-    const localMasters = readJson<MasterData>(MASTER_KEY);
-    await Promise.all([
-      api.saveProducts(localProducts),
-      api.saveSession(localSession ?? null),
-      api.saveHistory(localHistory),
-      localMasters ? api.saveMasters(localMasters) : Promise.resolve(),
-    ]);
   } catch (e) {
     console.warn('hydratePersistence skipped', e);
   }
