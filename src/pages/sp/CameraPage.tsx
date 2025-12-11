@@ -34,7 +34,7 @@ export function CameraPage() {
     const photo = addPhoto([dataUrl]);
     if (inputRef.current) inputRef.current.value = '';
     if (photo) {
-      navigate(`/count/${photo.id}`);
+      navigate(`/count/${photo.id}`, { state: { from: 'list' } });
     } else {
       navigate('/list');
     }

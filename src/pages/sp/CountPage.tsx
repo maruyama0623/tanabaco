@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AppHeader } from '../../components/layout/AppHeader';
 import { NumericPad } from '../../components/mobile/NumericPad';
 import { useSessionStore } from '../../store/sessionStore';
@@ -7,6 +7,7 @@ import { fileToDataUrl } from '../../services/imageService';
 
 export function CountPage() {
   const { photoId } = useParams<{ photoId: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const session = useSessionStore((s) => s.session);
   const updateQuantity = useSessionStore((s) => s.updateQuantity);
@@ -18,8 +19,12 @@ export function CountPage() {
   const photo = session?.photoRecords.find((p) => p.id === photoId);
   const formulaRef = useRef<string | undefined>(photo?.quantityFormula);
   const locked = session?.isLocked;
-  const images =
-    (photo?.imageUrls && photo.imageUrls.length ? photo.imageUrls : photo ? [photo.imageUrl] : []) ?? [];
+  const imagesRaw =
+    (photo?.imageUrls && photo.imageUrls.length ? photo.imageUrls : photo ? [photo.imageUrl] : []) ??
+    [];
+  const images = imagesRaw.length ? imagesRaw : ['__NO_IMAGE__'];
+  const origin = (location.state as any)?.from ?? 'list';
+  const goBack = () => navigate(origin === 'assign' ? '/assign' : '/list');
 
   useEffect(() => {
     if (!session) navigate('/start');
@@ -31,13 +36,13 @@ export function CountPage() {
     if (locked) return;
     // 数量と計算式を保存する
     updateQuantity(photoId, Number(value.toFixed(2)), formulaRef.current);
-    navigate('/list');
+    goBack();
   };
 
   const handleCancel = () => {
     if (locked) return;
     deletePhoto(photoId);
-    navigate('/list');
+    goBack();
   };
 
   const handleRemoveImage = (idx: number) => {
@@ -70,28 +75,36 @@ export function CountPage() {
         <div className="mb-4 grid grid-cols-3 gap-2 md:mb-0 md:w-1/2 md:max-w-[520px]">
           {images.map((img, idx) => (
             <div key={idx} className="relative aspect-square overflow-hidden rounded border cursor-pointer">
-              <img
-                src={img}
-                alt={`preview-${idx}`}
-                className="h-full w-full object-cover"
-                onClick={() => setPreviewIdx(idx)}
-              />
-              <button
-                type="button"
-                className="absolute right-1 top-1 h-7 w-7 rounded-full bg-black/70 text-lg font-bold text-white"
-                onClick={
-                  !locked
-                    ? () => {
-                        if (confirm('この写真を削除しますか？')) {
-                          handleRemoveImage(idx);
-                        }
-                      }
-                    : undefined
-                }
-                disabled={locked}
-              >
-                ×
-              </button>
+              {img === '__NO_IMAGE__' ? (
+                <div className="flex h-full w-full items-center justify-center bg-gray-100 px-2 text-center text-xs text-gray-500">
+                  棚卸表で追加（画像なし）
+                </div>
+              ) : (
+                <>
+                  <img
+                    src={img}
+                    alt={`preview-${idx}`}
+                    className="h-full w-full object-cover"
+                    onClick={() => setPreviewIdx(idx)}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-1 top-1 h-7 w-7 rounded-full bg-black/70 text-lg font-bold text-white"
+                    onClick={
+                      !locked
+                        ? () => {
+                            if (confirm('この写真を削除しますか？')) {
+                              handleRemoveImage(idx);
+                            }
+                          }
+                        : undefined
+                    }
+                    disabled={locked}
+                  >
+                    ×
+                  </button>
+                </>
+              )}
             </div>
           ))}
           {!locked && (

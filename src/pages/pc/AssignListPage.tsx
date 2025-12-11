@@ -259,7 +259,7 @@ export function AssignListPage() {
               product={products.find((p) => p.id === photo.productId)}
               onAssign={() => openModal(photo.id)}
               onDelete={() => deletePhoto(photo.id)}
-              onEditQuantity={() => navigate(`/count/${photo.id}`)}
+              onEditQuantity={() => navigate(`/count/${photo.id}`, { state: { from: 'assign' } })}
               disabled={locked}
             />
           ))}

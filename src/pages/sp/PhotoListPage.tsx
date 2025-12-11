@@ -19,6 +19,9 @@ export function PhotoListPage() {
 
   if (!session) return null;
   const locked = session.isLocked;
+  const visiblePhotos = session.photoRecords.filter(
+    (p) => (p.imageUrls?.length ?? 0) > 0 || !!p.imageUrl,
+  );
 
   const handleSelect = async (fileList: FileList | null) => {
     if (!fileList || !session || session.isLocked) return;
@@ -47,15 +50,15 @@ export function PhotoListPage() {
           </div>
         )}
         <div className="grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-3">
-          {session.photoRecords.map((photo) => (
+          {visiblePhotos.map((photo) => (
             <PhotoTile
               key={photo.id}
               photo={photo}
               disabled={locked}
-              onClick={() => navigate(`/count/${photo.id}`)}
+              onClick={() => navigate(`/count/${photo.id}`, { state: { from: 'list' } })}
             />
           ))}
-          {!session.photoRecords.length && (
+          {!visiblePhotos.length && (
             <div className="col-span-full rounded border border-dashed border-border p-6 text-center text-gray-500">
               写真がありません
             </div>

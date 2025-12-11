@@ -280,13 +280,23 @@ export function ReportPage() {
 
   const productChoices = useMemo(() => {
     const kw = addSearch.trim().toLowerCase();
-    return products.filter((p) => {
+    const filtered = products.filter((p) => {
       const deptMatch = selectedDept ? p.departments.includes(selectedDept) : true;
       const nameMatch = kw
         ? [p.name, p.productCd, p.supplierName].some((v) => v?.toLowerCase().includes(kw))
         : true;
       return deptMatch && nameMatch;
     });
+    // 該当がゼロの場合は事業部に関係なく全件を候補にする
+    if (!filtered.length) {
+      return products.filter((p) => {
+        if (kw) {
+          return [p.name, p.productCd, p.supplierName].some((v) => v?.toLowerCase().includes(kw));
+        }
+        return true;
+      });
+    }
+    return filtered;
   }, [addSearch, products, selectedDept]);
 
   useEffect(() => {
@@ -409,7 +419,7 @@ export function ReportPage() {
                 <div className="absolute right-0 top-10 z-40 w-44 overflow-hidden rounded border border-border bg-white shadow-lg">
                   <button
                     className="w-full px-4 py-3 text-left text-sm font-semibold hover:bg-muted disabled:text-gray-400"
-                    disabled={!currentSession || isLocked}
+                    disabled={!!isLocked}
                     onClick={() => {
                       setShowMobileMenu(false);
                       setShowAddModal(true);
@@ -676,7 +686,7 @@ export function ReportPage() {
           <Button
             variant="secondary"
             className="w-full rounded-lg px-6 py-3 text-base font-semibold"
-            disabled={!currentSession || isLocked}
+            disabled={!!isLocked}
             onClick={() => setShowAddModal(true)}
           >
             商品を追加する
