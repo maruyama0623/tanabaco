@@ -32,54 +32,57 @@ export function AssignListPage() {
     () => [...(session ? [session] : []), ...history],
     [history, session],
   );
-  const availableDepts = useMemo(() => {
-    const set = new Set<string>();
-    sessions.forEach((s) => set.add(s.department));
-    return Array.from(set);
-  }, [sessions]);
-  const [selectedDept, setSelectedDept] = useState<string>(session?.department ?? availableDepts[0] ?? '');
-  const deptSessions = useMemo(
-    () => sessions.filter((s) => s.department === selectedDept),
-    [sessions, selectedDept],
+  const sessionsWithPhotos = useMemo(
+    () => sessions.filter((s) => (s.photoRecords ?? []).length > 0),
+    [sessions],
   );
-  const months = useMemo(() => {
+
+  const allMonths = useMemo(() => {
     const set = new Set<string>();
-    deptSessions.forEach((s) => set.add(toMonthKey(s.inventoryDate)));
+    sessionsWithPhotos.forEach((s) => set.add(toMonthKey(s.inventoryDate)));
     return Array.from(set).sort().reverse();
-  }, [deptSessions]);
+  }, [sessionsWithPhotos]);
   const defaultMonthKey = defaultDisplayMonthKey();
   const initialMonth = useMemo(
     () =>
-      months.includes(defaultMonthKey)
+      allMonths.includes(defaultMonthKey)
         ? defaultMonthKey
-        : months[0] ?? (session ? toMonthKey(session.inventoryDate) : defaultMonthKey),
-    [months, defaultMonthKey, session],
+        : allMonths[0] ?? defaultMonthKey,
+    [allMonths, defaultMonthKey],
   );
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
 
   useEffect(() => {
-    if (availableDepts.length && !availableDepts.includes(selectedDept)) {
-      setSelectedDept(availableDepts[0]);
-    }
-  }, [availableDepts, selectedDept]);
-
-  useEffect(() => {
-    if (!months.length) return;
-    if (!months.includes(selectedMonth)) {
-      const fallback = months.includes(defaultMonthKey) ? defaultMonthKey : months[0];
-      if (fallback) setSelectedMonth(fallback);
-    }
-  }, [months, selectedMonth, defaultMonthKey]);
-
-  useEffect(() => {
-    if (!months.length) {
+    if (!allMonths.length) {
       setSelectedMonth('');
       return;
     }
-    if (!months.includes(selectedMonth)) {
-      setSelectedMonth(months[0]);
+    if (!allMonths.includes(selectedMonth)) {
+      const fallback = allMonths.includes(defaultMonthKey) ? defaultMonthKey : allMonths[0];
+      if (fallback) setSelectedMonth(fallback);
     }
-  }, [months, selectedMonth]);
+  }, [allMonths, selectedMonth, defaultMonthKey]);
+
+  const monthDepts = useMemo(() => {
+    const set = new Set<string>();
+    sessionsWithPhotos
+      .filter((s) => toMonthKey(s.inventoryDate) === selectedMonth)
+      .forEach((s) => set.add(s.department));
+    return Array.from(set);
+  }, [sessionsWithPhotos, selectedMonth]);
+
+  const [selectedDept, setSelectedDept] = useState<string>(monthDepts[0] ?? '');
+
+  useEffect(() => {
+    if (monthDepts.length && !monthDepts.includes(selectedDept)) {
+      setSelectedDept(monthDepts[0]);
+    }
+  }, [monthDepts, selectedDept]);
+
+  const deptSessions = useMemo(
+    () => sessionsWithPhotos.filter((s) => s.department === selectedDept),
+    [sessionsWithPhotos, selectedDept],
+  );
 
   const activeSession = useMemo(() => {
     if (!selectedMonth) return deptSessions[0] ?? null;
@@ -95,6 +98,8 @@ export function AssignListPage() {
       setCurrentSession(activeSession.id);
     }
   }, [activeSession, session?.id, setCurrentSession]);
+
+  const hasAnyPhoto = sessionsWithPhotos.length > 0;
 
   // handle deep link from report or external navigation
   useEffect(() => {
@@ -145,6 +150,18 @@ export function AssignListPage() {
   const goProducts = () => navigate('/products');
   const locked = activeSession?.isLocked;
 
+  if (!hasAnyPhoto) {
+    return (
+      <div className="min-h-screen bg-white">
+        <AppHeader title="商品割り当て" />
+        <div className="flex flex-col items-center justify-center gap-4 px-4 py-12 text-center">
+          <p className="text-sm text-gray-600">まだ棚卸データがありません。棚卸開始を実行してください。</p>
+          <Button onClick={() => navigate('/start')}>棚卸開始へ</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white pb-10">
       <AppHeader
@@ -163,28 +180,28 @@ export function AssignListPage() {
       <div className="px-4 py-4 md:px-6">
         <div className="flex flex-wrap items-stretch gap-3 md:items-center">
           <div className="w-full rounded border border-border bg-muted px-3 py-2 text-sm md:w-auto md:min-w-[180px]">
-            <div className="text-xs text-gray-500">事業部</div>
-            <select
-              className="w-full bg-transparent text-base font-semibold outline-none"
-              value={selectedDept}
-              onChange={(e) => setSelectedDept(e.target.value)}
-            >
-              {availableDepts.map((d) => (
-                <option key={d}>{d}</option>
-              ))}
-            </select>
-          </div>
-          <div className="w-full rounded border border-border bg-muted px-3 py-2 text-sm md:w-auto md:min-w-[180px]">
             <div className="text-xs text-gray-500">表示月（棚卸日）</div>
             <select
               className="w-full bg-transparent text-base font-semibold outline-none"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
             >
-              {months.map((m) => (
+              {allMonths.map((m) => (
                 <option key={m} value={m}>
                   {m}（{toMonthEndDate(m)}）
                 </option>
+              ))}
+            </select>
+          </div>
+          <div className="w-full rounded border border-border bg-muted px-3 py-2 text-sm md:w-auto md:min-w-[180px]">
+            <div className="text-xs text-gray-500">事業部</div>
+            <select
+              className="w-full bg-transparent text-base font-semibold outline-none"
+              value={selectedDept}
+              onChange={(e) => setSelectedDept(e.target.value)}
+            >
+              {monthDepts.map((d) => (
+                <option key={d}>{d}</option>
               ))}
             </select>
           </div>
