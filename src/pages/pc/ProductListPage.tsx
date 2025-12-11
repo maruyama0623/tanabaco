@@ -36,6 +36,7 @@ export function ProductListPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft());
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const filtered = useMemo(() => search(keyword, supplier), [keyword, supplier, search, products]);
 
@@ -77,6 +78,34 @@ export function ProductListPage() {
     setDraft((d) => ({ ...d, imageUrls: d.imageUrls.filter((_, i) => i !== idx) }));
   };
 
+  const mobileMenu = (
+    <div className="relative">
+      <button
+        aria-label="more actions"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-2xl leading-none hover:bg-gray-100"
+        onClick={() => setShowMobileMenu((v) => !v)}
+      >
+        ⋮
+      </button>
+      {showMobileMenu && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setShowMobileMenu(false)} />
+          <div className="absolute right-0 top-10 z-40 w-40 overflow-hidden rounded border border-border bg-white shadow-lg">
+            <button
+              className="w-full px-4 py-3 text-left text-sm font-semibold hover:bg-muted"
+              onClick={() => {
+                setShowMobileMenu(false);
+                openNew();
+              }}
+            >
+              商品登録
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-white pb-10">
       <AppHeader
@@ -89,6 +118,7 @@ export function ProductListPage() {
             <Button onClick={openNew}>商品登録</Button>
           </div>
         }
+        rightSlotMobile={mobileMenu}
       />
       <div className="px-6 py-4">
         <div className="mb-4 flex flex-wrap gap-3">

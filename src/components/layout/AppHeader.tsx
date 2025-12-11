@@ -4,9 +4,10 @@ import { useState } from 'react';
 interface Props {
   title?: string;
   rightSlot?: React.ReactNode;
+  rightSlotMobile?: React.ReactNode;
 }
 
-export function AppHeader({ title, rightSlot }: Props) {
+export function AppHeader({ title, rightSlot, rightSlotMobile }: Props) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const menuItems = [
@@ -42,11 +43,12 @@ export function AppHeader({ title, rightSlot }: Props) {
           <Link to="/start" className="flex items-center gap-2">
             <img src="/logo.svg" alt="ソトバコロゴ" className="h-8 w-auto" />
           </Link>
-          {title && <span className="ml-3 hidden text-lg font-semibold md:inline">{title}</span>}
-        </div>
-        <div className="hidden items-center md:flex">{rightSlot}</div>
+        {title && <span className="ml-3 hidden text-lg font-semibold md:inline">{title}</span>}
+      </div>
+      <div className="hidden items-center md:flex">{rightSlot}</div>
+      <div className="flex items-center md:hidden">{rightSlotMobile}</div>
 
-        {open && (
+      {open && (
           <>
             <div
               className="fixed inset-0 z-20 bg-black/30"

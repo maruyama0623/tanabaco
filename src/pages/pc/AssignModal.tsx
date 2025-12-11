@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Modal } from '../../components/common/Modal';
 import { ProductCard } from '../../components/desktop/ProductCard';
@@ -17,39 +17,69 @@ export function AssignModal() {
   const session = useSessionStore((s) => s.session);
   const history = useSessionStore((s) => s.history);
   const assignProduct = useSessionStore((s) => s.assignProduct);
-  const { addProduct, search, products } = useProductStore();
+  const { addProduct, updateProduct, search, products } = useProductStore();
   const departments = useMasterStore((s) => s.departments);
   const allPhotos = [
     ...(session?.photoRecords ?? []),
     ...history.flatMap((h) => h.photoRecords ?? []),
   ];
   const photo = allPhotos.find((p) => p.id === photoId) || null;
+  const existingProduct = photo?.productId
+    ? products.find((p) => p.id === photo.productId) ?? null
+    : null;
   const [selected, setSelected] = useState<string | null>(photo?.productId ?? null);
   const [keyword, setKeyword] = useState('');
   const [supplier, setSupplier] = useState('');
-  const [tab, setTab] = useState<Tab>('ai');
-  const [draft, setDraft] = useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>({
-    productCd: '',
-    name: '',
-    cost: 0,
-    departments: session?.department ? [session.department] : [],
-    supplierName: '',
-    supplierCd: '',
-    spec: '',
-    storageType: 'その他',
-    unit: 'P',
-    imageUrls:
-      photo?.imageUrls && photo.imageUrls.length
-        ? [...photo.imageUrls]
-        : photo
-          ? [photo.imageUrl]
-          : [],
+  const [tab, setTab] = useState<Tab>(existingProduct ? 'register' : 'ai');
+  const [draft, setDraft] = useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>(() => {
+    const base = existingProduct
+      ? {
+          ...existingProduct,
+          imageUrls: [...(existingProduct.imageUrls ?? [])],
+          departments: [...(existingProduct.departments ?? [])],
+        }
+      : {
+          productCd: '',
+          name: '',
+          cost: 0,
+          departments: session?.department ? [session.department] : [],
+          supplierName: '',
+          supplierCd: '',
+          spec: '',
+          storageType: 'その他',
+          unit: 'P',
+          imageUrls:
+            photo?.imageUrls && photo.imageUrls.length
+              ? [...photo.imageUrls]
+              : photo
+                ? [photo.imageUrl]
+                : [],
+        };
+    return base;
   });
 
   const filtered = useMemo(
     () => search(keyword, supplier, session?.department),
     [keyword, supplier, search, products, session?.department],
   );
+
+  // 既存商品の編集モードではフォームを最新の値で埋める
+  useEffect(() => {
+    if (existingProduct && tab === 'register') {
+      setDraft({
+        productCd: existingProduct.productCd,
+        name: existingProduct.name,
+        cost: existingProduct.cost,
+        departments: [...(existingProduct.departments ?? [])],
+        supplierName: existingProduct.supplierName,
+        supplierCd: existingProduct.supplierCd ?? '',
+        spec: existingProduct.spec ?? '',
+        storageType: existingProduct.storageType ?? 'その他',
+        unit: existingProduct.unit ?? 'P',
+        imageUrls: [...(existingProduct.imageUrls ?? [])],
+      });
+    }
+  }, [existingProduct, tab]);
 
   const locked = session?.isLocked;
 
@@ -62,6 +92,12 @@ export function AssignModal() {
       draft.departments.length || !session?.department
         ? draft.departments
         : [session.department];
+    if (existingProduct) {
+      // 上書き更新
+      useProductStore.getState().updateProduct(existingProduct.id, { ...draft, departments: departmentsToSave });
+      setSelected(existingProduct.id);
+      return existingProduct.id;
+    }
     const created = addProduct({ ...draft, departments: departmentsToSave });
     setSelected(created.id);
     return created.id;
@@ -70,10 +106,20 @@ export function AssignModal() {
   const handleConfirm = () => {
     if (!photoId || locked) return;
     let targetId = selected;
-    if (!targetId && tab === 'register') {
+
+    // 既存商品を更新するケース
+    if (tab === 'register' && existingProduct && targetId === existingProduct.id) {
+      const departmentsToSave =
+        draft.departments.length || !session?.department
+          ? draft.departments
+          : [session.department];
+      updateProduct(existingProduct.id, { ...draft, departments: departmentsToSave });
+    } else if (!targetId && tab === 'register') {
+      // 新規登録ケース
       targetId = handleRegister();
       setSelected(targetId);
     }
+
     const product = products.find((p) => p.id === targetId);
     if (photoId && targetId) {
       assignProduct(photoId, targetId, product?.cost, product?.unit);
@@ -84,7 +130,7 @@ export function AssignModal() {
   const tabs: { key: Tab; label: string }[] = [
     { key: 'ai', label: 'AI検索' },
     { key: 'search', label: '商品検索' },
-    { key: 'register', label: '商品登録' },
+    { key: 'register', label: existingProduct ? '商品更新' : '商品登録' },
   ];
 
   return (

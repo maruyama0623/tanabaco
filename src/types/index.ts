@@ -26,6 +26,10 @@ export interface PhotoRecord {
   quantityFormula?: string;
   unitCost?: number | null;
   unit?: string;
+  productName?: string;
+  productCd?: string;
+  productSupplierName?: string;
+  productStorageType?: StorageType;
   status: PhotoStatus;
   productId: string | null;
   takenAt: string;

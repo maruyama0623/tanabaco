@@ -3,12 +3,19 @@ import { nanoid } from 'nanoid';
 import { InventorySession, PhotoRecord } from '../types';
 import { persistence } from '../services/persistence';
 import { normalizeInventoryDate, toMonthKey } from '../utils/date';
+import { useProductStore } from './productStore';
 
 interface SessionState {
   session: InventorySession | null;
   history: InventorySession[];
   startSession: (payload: Omit<InventorySession, 'id' | 'photoRecords'>) => InventorySession;
   addPhoto: (imageUrls: string[]) => PhotoRecord | null;
+  addManualRecord: (payload: {
+    productId: string;
+    quantity: number;
+    unitCost?: number;
+    unit?: string;
+  }) => PhotoRecord | null;
   updateQuantity: (photoId: string, quantity: number, formula?: string) => void;
   updatePhotoImages: (photoId: string, imageUrls: string[]) => void;
   deletePhoto: (photoId: string) => void;
@@ -127,6 +134,35 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ session: updated });
     return photo;
   },
+  addManualRecord: ({ productId, quantity, unitCost, unit }) => {
+    const current = get().session;
+    if (!current || current.isLocked) return null;
+    const prod = useProductStore.getState().products.find((p) => p.id === productId);
+    const photo: PhotoRecord = {
+      id: nanoid(),
+      imageUrl: '',
+      imageUrls: [],
+      quantity,
+      status: 'assigned',
+      productId,
+      unitCost: unitCost ?? prod?.cost ?? null,
+      unit: unit ?? prod?.unit,
+      productName: prod?.name,
+      productCd: prod?.productCd,
+      productSupplierName: prod?.supplierName,
+      productStorageType: prod?.storageType,
+      takenAt: new Date().toISOString(),
+      department: current.department,
+      inventoryDate: current.inventoryDate,
+    };
+    const updated: InventorySession = {
+      ...current,
+      photoRecords: [photo, ...current.photoRecords],
+    };
+    persistence.saveSession(updated);
+    set({ session: updated });
+    return photo;
+  },
   updateQuantity: (photoId, quantity, formula) => {
     const current = get().session;
     if (!current || current.isLocked) return;
@@ -171,14 +207,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   assignProduct: (photoId, productId, unitCost, unit) => {
     const current = get().session;
     if (!current || current.isLocked) return;
+    const prod = useProductStore.getState().products.find((p) => p.id === productId);
     const photoRecords = current.photoRecords.map((p) =>
       p.id === photoId
         ? {
             ...p,
             productId,
             status: 'assigned' as const,
-            unitCost: unitCost ?? p.unitCost ?? undefined,
-            unit: unit ?? p.unit ?? undefined,
+            unitCost: unitCost ?? p.unitCost ?? prod?.cost ?? undefined,
+            unit: unit ?? p.unit ?? prod?.unit ?? undefined,
+            productName: prod?.name ?? p.productName,
+            productCd: prod?.productCd ?? p.productCd,
+            productSupplierName: prod?.supplierName ?? p.productSupplierName,
+            productStorageType: prod?.storageType ?? p.productStorageType,
           }
         : p,
     );

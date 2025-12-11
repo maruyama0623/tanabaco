@@ -58,10 +58,6 @@ export function AssignListPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
 
   useEffect(() => {
-    if (!session && history.length === 0) navigate('/start');
-  }, [history.length, navigate, session]);
-
-  useEffect(() => {
     if (availableDepts.length && !availableDepts.includes(selectedDept)) {
       setSelectedDept(availableDepts[0]);
     }
@@ -118,7 +114,17 @@ export function AssignListPage() {
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate, products]);
 
-  if (!session && !activeSession) return null;
+  if (!session && !activeSession) {
+    return (
+      <div className="min-h-screen bg-white">
+        <AppHeader title="商品割り当て" />
+        <div className="flex flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-gray-600">
+          <p>棚卸開始からセッションを作成してください。</p>
+          <Button onClick={() => navigate('/start')}>棚卸開始へ</Button>
+        </div>
+      </div>
+    );
+  }
 
   const filtered =
     tab === 'unassigned'

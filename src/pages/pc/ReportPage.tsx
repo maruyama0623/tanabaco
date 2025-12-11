@@ -8,30 +8,53 @@ import { exportCsv } from '../../services/reportService';
 import { toMonthEndDate, toMonthKey } from '../../utils/date';
 import { formatNumber, formatYen } from '../../utils/number';
 import { Modal } from '../../components/common/Modal';
+import { Product } from '../../types';
 
 export function ReportPage() {
   const navigate = useNavigate();
   const session = useSessionStore((s) => s.session);
   const history = useSessionStore((s) => s.history);
   const products = useProductStore((s) => s.products);
+  const addProduct = useProductStore((s) => s.addProduct);
   const lockSession = useSessionStore((s) => s.lockSession);
   const updateUnitCost = useSessionStore((s) => s.updateUnitCost);
   const updateProduct = useProductStore((s) => s.updateProduct);
+  const addManualRecord = useSessionStore((s) => s.addManualRecord);
   const [lockConfirmOpen, setLockConfirmOpen] = useState(false);
-
-  if (!session) {
-    navigate('/start');
-    return null;
-  }
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showDesktopMenu, setShowDesktopMenu] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addSearch, setAddSearch] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [addQty, setAddQty] = useState<number>(1);
+  const [addUnitCost, setAddUnitCost] = useState<number>(0);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newProd, setNewProd] = useState<{
+    name: string;
+    productCd: string;
+    supplierName: string;
+    spec: string;
+    storageType: Product['storageType'];
+    cost: number;
+    unit: string;
+  }>({
+    name: '',
+    productCd: '',
+    supplierName: '',
+    spec: '',
+    storageType: 'その他',
+    cost: 0,
+    unit: 'P',
+  });
 
   const availableDepartments = useMemo(() => {
     const set = new Set<string>();
-    set.add(session.department);
+    if (session) set.add(session.department);
     history.forEach((h) => set.add(h.department));
     return Array.from(set);
-  }, [history, session.department]);
+  }, [history, session]);
 
-  const [selectedDept, setSelectedDept] = useState<string>(session.department);
+  const [selectedDept, setSelectedDept] = useState<string>(session?.department ?? history[0]?.department ?? '');
 
   useEffect(() => {
     if (!availableDepartments.includes(selectedDept) && availableDepartments.length) {
@@ -41,14 +64,14 @@ export function ReportPage() {
 
   const months = useMemo(() => {
     const set = new Set<string>();
-    if (session.department === selectedDept) {
+    if (session && session.department === selectedDept) {
       set.add(toMonthKey(session.inventoryDate));
     }
     history
       .filter((h) => h.department === selectedDept)
       .forEach((h) => set.add(toMonthKey(h.inventoryDate)));
     return Array.from(set).sort().reverse();
-  }, [history, selectedDept, session.department, session.inventoryDate]);
+  }, [history, selectedDept, session]);
 
   const previousMonthKey = useMemo(() => {
     const now = new Date();
@@ -73,14 +96,31 @@ export function ReportPage() {
   }, [months, selectedMonth, previousMonthKey]);
 
   const findSessionByMonth = (month: string) => {
-    if (session.department === selectedDept && toMonthKey(session.inventoryDate) === month)
+    if (
+      session &&
+      session.department === selectedDept &&
+      toMonthKey(session.inventoryDate) === month
+    ) {
       return session;
+    }
     return (
       history.find(
         (h) => h.department === selectedDept && toMonthKey(h.inventoryDate) === month,
       ) || null
     );
   };
+
+  if (!session && history.length === 0) {
+    return (
+      <div className="min-h-screen bg-white">
+        <AppHeader title="棚卸表" />
+        <div className="flex flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-gray-600">
+          <p>表示できる棚卸データがありません。棚卸開始から登録してください。</p>
+          <Button onClick={() => navigate('/start')}>棚卸開始へ</Button>
+        </div>
+      </div>
+    );
+  }
   const currentSession = findSessionByMonth(selectedMonth);
   const prevMonthKey = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number);
@@ -120,25 +160,39 @@ export function ReportPage() {
     const map = new Map<
       string,
       {
-        product: typeof products[number];
+        product: typeof products[number] | null;
         quantity: number;
         amount: number;
         unitCost: number;
         unit: string;
+        productCd?: string;
+        productSupplierName?: string;
+        productStorageType?: Product['storageType'];
       }
     >();
     if (!photos) return map;
     photos.forEach((photo) => {
       if (photo.status !== 'assigned' || !photo.productId || photo.quantity == null) return;
-      const product = products.find((p) => p.id === photo.productId);
-      if (!product) return;
-      const cost = photo.unitCost ?? product.cost;
-      const unit = photo.unit ?? product.unit ?? 'P';
+      const product = products.find((p) => p.id === photo.productId) ?? null;
+      const cost = photo.unitCost ?? product?.cost ?? 0;
+      const unit = photo.unit ?? product?.unit ?? 'P';
       const entry =
-        map.get(photo.productId) || { product, quantity: 0, amount: 0, unitCost: cost, unit };
+        map.get(photo.productId) || {
+          product,
+          quantity: 0,
+          amount: 0,
+          unitCost: cost,
+          unit,
+          productCd: photo.productCd,
+          productSupplierName: photo.productSupplierName,
+          productStorageType: photo.productStorageType,
+        };
       entry.quantity += photo.quantity;
       entry.unitCost = cost;
       entry.unit = unit;
+      entry.productCd = entry.productCd ?? photo.productCd;
+      entry.productSupplierName = entry.productSupplierName ?? photo.productSupplierName;
+      entry.productStorageType = entry.productStorageType ?? photo.productStorageType;
       entry.amount = entry.quantity * entry.unitCost;
       map.set(photo.productId, entry);
     });
@@ -152,18 +206,44 @@ export function ReportPage() {
     .map((productId) => {
       const curr = currentMap.get(productId);
       const prev = prevMap.get(productId);
-      const product = curr?.product ?? prev?.product;
-      if (!product) return null;
-      const unitCost = curr?.unitCost ?? product.cost;
-      const prevCost = prev?.unitCost ?? product.cost;
-      const unit = curr?.unit ?? product.unit ?? 'P';
-      const prevUnit = prev?.unit ?? product.unit ?? 'P';
+      const product = curr?.product ?? prev?.product ?? null;
+      const fallbackName =
+        curr?.product?.name ??
+        prev?.product?.name ??
+        curr?.productCd ??
+        prev?.productCd ??
+        '未設定';
+      const fallbackUnit =
+        curr?.unit ??
+        prev?.unit ??
+        curr?.product?.unit ??
+        prev?.product?.unit ??
+        'P';
+      const fallbackCost = curr?.unitCost ?? prev?.unitCost ?? 0;
+      const unitCost = curr?.unitCost ?? fallbackCost;
+      const prevCost = prev?.unitCost ?? fallbackCost;
+      const unit = fallbackUnit;
+      const prevUnit = fallbackUnit;
       const quantity = curr?.quantity ?? 0;
       const amount = quantity * unitCost;
       const prevQuantity = prev?.quantity ?? 0;
       const prevAmount = prevQuantity * prevCost;
       return {
-        product,
+        product: product ?? {
+          id: productId,
+          name: fallbackName,
+          productCd: curr?.productCd ?? prev?.productCd ?? '',
+          supplierName: curr?.productSupplierName ?? prev?.productSupplierName ?? '',
+          storageType: curr?.productStorageType ?? prev?.productStorageType,
+          cost: unitCost,
+          unit,
+          departments: [],
+          supplierCd: '',
+          spec: '',
+          imageUrls: [],
+          createdAt: '',
+          updatedAt: '',
+        },
         unitCost,
         prevCost,
         unit,
@@ -194,11 +274,150 @@ export function ReportPage() {
   const prevTotal = rows.reduce((acc, r) => acc + r.prevAmount, 0);
   const diff = total - prevTotal;
 
+  const productChoices = useMemo(() => {
+    const kw = addSearch.trim().toLowerCase();
+    return products.filter((p) => {
+      const deptMatch = selectedDept ? p.departments.includes(selectedDept) : true;
+      const nameMatch = kw
+        ? [p.name, p.productCd, p.supplierName].some((v) => v?.toLowerCase().includes(kw))
+        : true;
+      return deptMatch && nameMatch;
+    });
+  }, [addSearch, products, selectedDept]);
+
+  useEffect(() => {
+    if (productChoices.length && !selectedProductId) {
+      const first = productChoices[0];
+      setSelectedProductId(first.id);
+      setAddUnitCost(first.cost);
+    } else if (selectedProductId) {
+      const prod = products.find((p) => p.id === selectedProductId);
+      if (prod) {
+        setAddUnitCost(prod.cost);
+      }
+    }
+  }, [productChoices, products, selectedProductId]);
+
+  const handleAddManual = () => {
+    if (!currentSession || !selectedProductId || addQty <= 0) return;
+    const selectedProd = products.find((p) => p.id === selectedProductId);
+    if (selectedProd && addUnitCost !== selectedProd.cost) {
+      updateProduct(selectedProd.id, { cost: addUnitCost });
+    }
+    addManualRecord({
+      productId: selectedProductId,
+      quantity: addQty,
+      unitCost: addUnitCost,
+      unit: selectedProd?.unit ?? 'P',
+    });
+    setShowAddModal(false);
+  };
+
+  const handleCreateProduct = () => {
+    if (!newProd.name.trim()) {
+      alert('商品名を入力してください');
+      return;
+    }
+    const product = addProduct({
+      ...newProd,
+      supplierCd: '',
+      departments: selectedDept ? [selectedDept] : [],
+      imageUrls: [],
+    });
+    setShowCreateForm(false);
+    setAddSearch('');
+    setSelectedProductId(product.id);
+    setAddUnitCost(product.cost);
+    setNewProd({
+      name: '',
+      productCd: '',
+      supplierName: '',
+      spec: '',
+      storageType: 'その他',
+      cost: 0,
+      unit: 'P',
+    });
+  };
+
   return (
     <div className="min-h-screen bg-white pb-20">
       <AppHeader
         title="棚卸表"
-        rightSlot={<Button onClick={() => exportCsv(rows)}>CSV</Button>}
+        rightSlot={
+          <div className="relative">
+            <Button
+              variant="ghost"
+              className="rounded-full px-3 py-2"
+              onClick={() => setShowDesktopMenu((v) => !v)}
+            >
+              ⋮
+            </Button>
+            {showDesktopMenu && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowDesktopMenu(false)} />
+                <div className="absolute right-0 top-12 z-40 w-48 overflow-hidden rounded border border-border bg-white shadow-lg">
+                  <button
+                    className="w-full px-4 py-3 text-left text-sm font-semibold hover:bg-muted disabled:text-gray-400"
+                    disabled={!currentSession || isLocked}
+                    onClick={() => {
+                      setShowDesktopMenu(false);
+                      setLockConfirmOpen(true);
+                    }}
+                  >
+                    {isLocked ? '確定済み' : '棚卸を完了する'}
+                  </button>
+                  <button
+                    className="w-full px-4 py-3 text-left text-sm font-semibold hover:bg-muted"
+                    onClick={() => {
+                      setShowDesktopMenu(false);
+                      exportCsv(rows);
+                    }}
+                  >
+                    CSVを出力する
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        }
+        rightSlotMobile={
+          <div className="relative">
+            <button
+              aria-label="more actions"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-2xl leading-none hover:bg-gray-100"
+              onClick={() => setShowMobileMenu((v) => !v)}
+            >
+              ⋮
+            </button>
+            {showMobileMenu && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowMobileMenu(false)} />
+                <div className="absolute right-0 top-10 z-40 w-44 overflow-hidden rounded border border-border bg-white shadow-lg">
+                  <button
+                    className="w-full px-4 py-3 text-left text-sm font-semibold hover:bg-muted disabled:text-gray-400"
+                    disabled={!currentSession || isLocked}
+                    onClick={() => {
+                      setShowMobileMenu(false);
+                      setShowAddModal(true);
+                    }}
+                  >
+                    商品を追加する
+                  </button>
+                  <button
+                    className="w-full px-4 py-3 text-left text-sm font-semibold hover:bg-muted"
+                    disabled={!currentSession || isLocked}
+                    onClick={() => {
+                      setShowMobileMenu(false);
+                      setLockConfirmOpen(true);
+                    }}
+                  >
+                    {isLocked ? '確定済み' : '棚卸完了する'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        }
       />
       <div className="px-4 py-4 md:px-6">
         <div className="mb-4 grid grid-cols-1 items-stretch gap-3 md:grid-cols-5">
@@ -438,17 +657,200 @@ export function ReportPage() {
           )}
         </div>
       </div>
-      <div className="fixed bottom-0 left-0 right-0 bg-white px-4 pb-4 pt-3 shadow-[0_-8px_16px_-12px_rgba(0,0,0,0.2)]">
+      <div className="fixed bottom-0 left-0 right-0 bg-white px-4 pb-4 pt-3 shadow-[0_-8px_16px_-12px_rgba(0,0,0,0.2)] hidden md:block">
         <div className="mx-auto w-full max-w-5xl">
           <Button
-            onClick={() => setLockConfirmOpen(true)}
+            variant="secondary"
             className="w-full rounded-lg px-6 py-3 text-base font-semibold"
             disabled={!currentSession || isLocked}
+            onClick={() => setShowAddModal(true)}
           >
-            {isLocked ? '確定済み' : '棚卸完了する'}
+            商品を追加する
           </Button>
         </div>
       </div>
+      <Modal open={showAddModal} onClose={() => setShowAddModal(false)}>
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">棚卸商品を追加</h3>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-700">既存の商品を追加</span>
+              <Button variant="secondary" size="sm" onClick={() => setShowCreateForm((v) => !v)}>
+                {showCreateForm ? '既存から選ぶ' : '新規商品を登録'}
+              </Button>
+            </div>
+            {!showCreateForm && (
+              <>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-gray-700">商品検索</span>
+                  <input
+                    value={addSearch}
+                    onChange={(e) => setAddSearch(e.target.value)}
+                    placeholder="商品名・コード・仕入先で検索"
+                    className="rounded border border-border px-3 py-2"
+                  />
+                </label>
+                <div className="max-h-52 overflow-y-auto rounded border border-border">
+                  {productChoices.map((p) => (
+                    <label
+                      key={p.id}
+                      className={`flex cursor-pointer items-center gap-3 px-3 py-2 ${
+                        selectedProductId === p.id ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="add-product"
+                        checked={selectedProductId === p.id}
+                        onChange={() => {
+                          setSelectedProductId(p.id);
+                          setAddUnitCost(p.cost);
+                          setAddUnit(p.unit ?? 'P');
+                        }}
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold">{p.name}</span>
+                        <span className="text-xs text-gray-500">{p.productCd}</span>
+                        <span className="text-xs text-gray-500">{p.supplierName}</span>
+                      </div>
+                      <div className="ml-auto text-sm text-gray-600">
+                        {formatYen(p.cost)}/{p.unit ?? 'P'}
+                      </div>
+                    </label>
+                  ))}
+                  {!productChoices.length && (
+                    <div className="px-3 py-4 text-sm text-gray-500">対象の商品がありません</div>
+                  )}
+                </div>
+              </>
+            )}
+            {showCreateForm && (
+              <div className="space-y-3 rounded border border-border p-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-gray-700">商品名</span>
+                  <input
+                    value={newProd.name}
+                    onChange={(e) => setNewProd({ ...newProd, name: e.target.value })}
+                    className="rounded border border-border px-3 py-2"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-gray-700">自社管理商品CD</span>
+                  <input
+                    value={newProd.productCd}
+                    onChange={(e) => setNewProd({ ...newProd, productCd: e.target.value })}
+                    className="rounded border border-border px-3 py-2"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-gray-700">仕入先</span>
+                  <input
+                    value={newProd.supplierName}
+                    onChange={(e) => setNewProd({ ...newProd, supplierName: e.target.value })}
+                    className="rounded border border-border px-3 py-2"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-gray-700">規格</span>
+                  <input
+                    value={newProd.spec}
+                    onChange={(e) => setNewProd({ ...newProd, spec: e.target.value })}
+                    className="rounded border border-border px-3 py-2"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-gray-700">単価</span>
+                  <div className="flex items-center rounded border border-border px-3 py-2">
+                    <span className="mr-2 text-sm text-gray-600">¥</span>
+                    <input
+                      value={newProd.cost.toLocaleString('ja-JP')}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/,/g, '');
+                        const num = Number(raw);
+                        if (!Number.isNaN(num)) setNewProd({ ...newProd, cost: num });
+                      }}
+                      className="w-full text-right outline-none"
+                    />
+                  </div>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-gray-700">単位</span>
+                  <input
+                    value={newProd.unit}
+                    onChange={(e) => setNewProd({ ...newProd, unit: e.target.value })}
+                    className="rounded border border-border px-3 py-2"
+                  />
+                </label>
+              <label className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-gray-700">保存区分</span>
+                  <select
+                    value={newProd.storageType}
+                    onChange={(e) =>
+                      setNewProd({ ...newProd, storageType: e.target.value as Product['storageType'] })
+                    }
+                    className="rounded border border-border px-3 py-2"
+                  >
+                    <option value="冷凍">冷凍</option>
+                    <option value="冷蔵">冷蔵</option>
+                    <option value="常温">常温</option>
+                    <option value="その他">その他</option>
+                  </select>
+                </label>
+                <Button onClick={handleCreateProduct} className="w-full">
+                  商品を登録する
+                </Button>
+              </div>
+            )}
+            {!showCreateForm && (
+              <>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+                  <label className="flex flex-1 flex-col gap-1">
+                    <span className="text-sm font-semibold text-gray-700">数量</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={addQty}
+                      onChange={(e) => setAddQty(Number(e.target.value))}
+                      className="w-full rounded border border-border px-3 py-2 h-[44px]"
+                    />
+                  </label>
+                  <label className="flex flex-1 flex-col gap-1">
+                    <span className="text-sm font-semibold text-gray-700">単価</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center rounded border border-border px-3 py-2 h-[44px] flex-1">
+                        <span className="mr-2 text-sm text-gray-600">¥</span>
+                        <input
+                          type="text"
+                          value={addUnitCost.toLocaleString('ja-JP')}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/,/g, '');
+                            const num = Number(raw);
+                            if (!Number.isNaN(num)) setAddUnitCost(num);
+                          }}
+                          className="w-full text-right outline-none"
+                        />
+                      </div>
+                      <span className="text-sm text-gray-600">
+                        / {products.find((p) => p.id === selectedProductId)?.unit || '単位'}
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
+          {!showCreateForm && (
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setShowAddModal(false)}>
+                キャンセル
+              </Button>
+              <Button onClick={handleAddManual} disabled={!currentSession || isLocked || !selectedProductId}>
+                追加する
+              </Button>
+            </div>
+          )}
+        </div>
+      </Modal>
       <Modal open={lockConfirmOpen} onClose={() => setLockConfirmOpen(false)}>
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">この月を確定しますか？</h3>
