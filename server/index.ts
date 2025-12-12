@@ -96,7 +96,8 @@ app.post('/api/ai-search', async (req, res) => {
 
     const safePhotoUrl =
       typeof photoUrl === 'string' && photoUrl.startsWith('http') && photoUrl.length < 5000 ? photoUrl : '';
-    const MAX_CATALOG = 50;
+    // トークン削減: カタログ件数を絞る
+    const MAX_CATALOG = 20;
 
     const productPhotoMap = assignedPhotos.reduce<Record<string, string[]>>((acc, p) => {
       const urls = uniq([p.imageUrl, ...toStringArray(p.imageUrls as any)]).filter(Boolean);
@@ -113,15 +114,14 @@ app.post('/api/ai-search', async (req, res) => {
       })
       .map((p) => ({
         id: p.id,
-        name: truncate(p.name, 120),
-        productCd: truncate(p.productCd, 120),
-        supplierName: truncate(p.supplierName, 80),
-        spec: truncate((p as any).spec ?? '', 160),
-        storageType: truncate((p as any).storageType ?? '', 32),
+        name: truncate(p.name, 80),
+        productCd: truncate(p.productCd, 80),
+        supplierName: truncate(p.supplierName, 60),
+        spec: truncate((p as any).spec ?? '', 80),
+        storageType: truncate((p as any).storageType ?? '', 16),
         unit: (p as any).unit ?? 'P',
         departments: toStringArray(p.departments),
-        imageUrls: uniq(toStringArray(p.imageUrls as any)).slice(0, 3),
-        samplePhotos: productPhotoMap[p.id] ?? [],
+        imageUrls: uniq(toStringArray(p.imageUrls as any)).slice(0, 1),
       }));
     const catalogLimited = catalog.slice(0, MAX_CATALOG);
     if (!catalogLimited.length) return res.json({ suggestions: [], message: 'no-products' });
