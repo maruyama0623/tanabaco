@@ -181,7 +181,7 @@ app.post('/api/ai-search', async (req, res) => {
     if (!products.length) return res.json({ suggestions: [], message: 'no-products' });
 
     // トークン削減: 画像は送らず、カタログ件数を絞る
-    const MAX_CATALOG = 20;
+    const MAX_CATALOG = 10;
 
     const productPhotoMap = assignedPhotos.reduce<Record<string, string[]>>((acc, p) => {
       const urls = uniq([p.imageUrl, ...toStringArray(p.imageUrls as any)]).filter(Boolean);
@@ -205,6 +205,7 @@ app.post('/api/ai-search', async (req, res) => {
         storageType: truncate((p as any).storageType ?? '', 16),
         unit: (p as any).unit ?? 'P',
         departments: toStringArray(p.departments),
+        // 画像は送らないので保持のみ
         imageUrls: uniq(toStringArray(p.imageUrls as any)).slice(0, 1),
         featureSummary: (p as any).featureSummary ?? '',
         featureEmbedding: Array.isArray((p as any).featureEmbedding) ? (p as any).featureEmbedding : undefined,
@@ -236,6 +237,13 @@ app.post('/api/ai-search', async (req, res) => {
       console.warn('ai-search embedding skip', e);
     }
 
+    // ChatGPTに渡す情報を最小化（id+name+featureSummaryのみ）
+    const compactCatalog = rankedCatalog.map((c) => ({
+      id: c.id,
+      name: c.name,
+      featureSummary: c.featureSummary ?? '',
+    }));
+
     const userContent: Array<
       { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } }
     > = [
@@ -246,7 +254,7 @@ app.post('/api/ai-search', async (req, res) => {
           '画像内の文字（ラベル、商品名、容量、メーカー名）一致を重視し、形状・色も参考にしてください。',
           '必ずJSONオブジェクトで回答: { "suggestions": [ { "productId": string, "reason": string, "confidence": 0-1 } ] } 。confidenceの高い順に並べてください。',
           `ユーザー入力: ${userQuery || '写真から商品を推定してください。'}`,
-          `カタログ: ${JSON.stringify(rankedCatalog)}`,
+          `カタログ: ${JSON.stringify(compactCatalog)}`,
         ].join('\n'),
       },
     ];
