@@ -63,6 +63,7 @@ export function ProductListPage() {
     setDraft({
       ...rest,
       unit: rest.unit ?? '',
+      supplierCd: rest.supplierCd ?? '',
       cost: rest.cost ?? null,
       imageUrls: [...(rest.imageUrls ?? [])],
       departments: [...(rest.departments ?? [])],

@@ -844,14 +844,14 @@ export function ReportPage() {
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
                   <label className="flex flex-1 flex-col gap-1">
                     <span className="text-sm font-semibold text-gray-700">数量</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                    value={Number.isFinite(addQty) ? addQty : ''}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/,/g, '');
-                      if (raw === '') {
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={addQty != null && Number.isFinite(addQty) ? String(addQty) : ''}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/,/g, '');
+                        if (raw === '') {
                     setAddQty(null);
                     return;
                   }
