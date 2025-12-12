@@ -29,8 +29,8 @@ export function ReportPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addSearch, setAddSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string>('');
-  const [addQty, setAddQty] = useState<number>(1);
-  const [addUnitCost, setAddUnitCost] = useState<number>(0);
+  const [addQty, setAddQty] = useState<number | null>(null);
+  const [addUnitCost, setAddUnitCost] = useState<number | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProd, setNewProd] = useState<{
     name: string;
@@ -38,7 +38,7 @@ export function ReportPage() {
     supplierName: string;
     spec: string;
     storageType: Product['storageType'];
-    cost: number;
+    cost: number | null;
     unit: string;
   }>({
     name: '',
@@ -46,8 +46,8 @@ export function ReportPage() {
     supplierName: '',
     spec: '',
     storageType: 'その他',
-    cost: 0,
-    unit: 'P',
+    cost: null,
+    unit: '',
   });
 
   const allSessions = useMemo(
@@ -313,7 +313,7 @@ export function ReportPage() {
   }, [productChoices, products, selectedProductId]);
 
   const handleAddManual = () => {
-    if (!selectedProductId || addQty <= 0) return;
+    if (!selectedProductId || addQty == null || addQty <= 0) return;
     const selectedProd = products.find((p) => p.id === selectedProductId);
     if (selectedProd && addUnitCost !== selectedProd.cost) {
       updateProduct(selectedProd.id, { cost: addUnitCost });
@@ -342,8 +342,12 @@ export function ReportPage() {
       alert('商品名を入力してください');
       return;
     }
+    const cost = newProd.cost ?? 0;
+    const unit = newProd.unit || 'P';
     const product = addProduct({
       ...newProd,
+      cost,
+      unit,
       supplierCd: '',
       departments: selectedDept ? [selectedDept] : [],
       imageUrls: [],
@@ -786,9 +790,20 @@ export function ReportPage() {
                   <div className="flex items-center rounded border border-border px-3 py-2">
                     <span className="mr-2 text-sm text-gray-600">¥</span>
                     <input
-                      value={newProd.cost.toLocaleString('ja-JP')}
+                      type="text"
+                      inputMode="decimal"
+                      onFocus={(e) => e.target.select()}
+                      value={
+                        Number.isFinite(newProd.cost) && newProd.cost != null
+                          ? newProd.cost.toLocaleString('ja-JP')
+                          : ''
+                      }
                       onChange={(e) => {
                         const raw = e.target.value.replace(/,/g, '');
+                        if (raw === '') {
+                          setNewProd({ ...newProd, cost: null });
+                          return;
+                        }
                         const num = Number(raw);
                         if (!Number.isNaN(num)) setNewProd({ ...newProd, cost: num });
                       }}
@@ -829,13 +844,22 @@ export function ReportPage() {
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
                   <label className="flex flex-1 flex-col gap-1">
                     <span className="text-sm font-semibold text-gray-700">数量</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={addQty}
-                      onChange={(e) => setAddQty(Number(e.target.value))}
-                      className="w-full rounded border border-border px-3 py-2 h-[44px]"
-                    />
+              <input
+                type="text"
+                inputMode="decimal"
+                value={Number.isFinite(addQty) ? addQty : ''}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/,/g, '');
+                  if (raw === '') {
+                    setAddQty(null);
+                    return;
+                  }
+                  const num = Number(raw);
+                  if (!Number.isNaN(num)) setAddQty(num);
+                }}
+                className="w-full rounded border border-border px-3 py-2 h-[44px] text-right"
+              />
                   </label>
                   <label className="flex flex-1 flex-col gap-1">
                     <span className="text-sm font-semibold text-gray-700">単価</span>
@@ -844,9 +868,19 @@ export function ReportPage() {
                         <span className="mr-2 text-sm text-gray-600">¥</span>
                         <input
                           type="text"
-                          value={addUnitCost.toLocaleString('ja-JP')}
+                          inputMode="decimal"
+                          onFocus={(e) => e.target.select()}
+                          value={
+                            Number.isFinite(addUnitCost) && addUnitCost != null
+                              ? addUnitCost.toLocaleString('ja-JP')
+                              : ''
+                          }
                           onChange={(e) => {
                             const raw = e.target.value.replace(/,/g, '');
+                            if (raw === '') {
+                              setAddUnitCost(null);
+                              return;
+                            }
                             const num = Number(raw);
                             if (!Number.isNaN(num)) setAddUnitCost(num);
                           }}
@@ -867,7 +901,7 @@ export function ReportPage() {
               <Button variant="secondary" onClick={() => setShowAddModal(false)}>
                 キャンセル
               </Button>
-              <Button onClick={handleAddManual} disabled={!currentSession || isLocked || !selectedProductId}>
+              <Button onClick={handleAddManual} disabled={isLocked || !selectedProductId}>
                 追加する
               </Button>
             </div>

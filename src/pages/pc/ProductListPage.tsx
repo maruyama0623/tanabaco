@@ -11,13 +11,13 @@ import { useMasterStore } from '../../store/masterStore';
 import { SupplierSelector } from '../../components/common/SupplierSelector';
 import { formatYen } from '../../utils/number';
 
-type Draft = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>;
+type Draft = Omit<Product, 'id' | 'createdAt' | 'updatedAt'> & { cost: number | null };
 
 const emptyDraft = (): Draft => ({
   productCd: '',
   name: '',
-  cost: 0,
-  unit: 'P',
+  cost: null,
+  unit: '',
   departments: [],
   supplierName: '',
   supplierCd: '',
@@ -49,16 +49,31 @@ export function ProductListPage() {
   const openEdit = (prod: Product) => {
     const { id, createdAt, updatedAt, ...rest } = prod;
     setEditing(prod);
-    setDraft({ ...rest, imageUrls: [...(rest.imageUrls ?? [])], departments: [...(rest.departments ?? [])] });
+    setDraft({
+      ...rest,
+      cost: rest.cost ?? null,
+      imageUrls: [...(rest.imageUrls ?? [])],
+      departments: [...(rest.departments ?? [])],
+    });
     setShowModal(true);
   };
 
   const handleSave = () => {
     const departmentsToSave = draft.departments.length ? draft.departments : departments;
     if (editing) {
-      updateProduct(editing.id, { ...draft, departments: departmentsToSave });
+      updateProduct(editing.id, {
+        ...draft,
+        cost: draft.cost ?? 0,
+        unit: draft.unit || 'P',
+        departments: departmentsToSave,
+      });
     } else {
-      addProduct({ ...draft, departments: departmentsToSave });
+      addProduct({
+        ...draft,
+        cost: draft.cost ?? 0,
+        unit: draft.unit || 'P',
+        departments: departmentsToSave,
+      });
     }
     setShowModal(false);
   };
@@ -265,15 +280,25 @@ export function ProductListPage() {
             <label className="flex flex-col gap-1">
               <span className="text-sm font-semibold text-gray-700">単価</span>
               <input
-                inputMode="numeric"
-                value={draft.cost ? draft.cost.toLocaleString('ja-JP') : ''}
+                type="text"
+                inputMode="decimal"
+                onFocus={(e) => e.target.select()}
+                value={
+                  Number.isFinite(draft.cost) && draft.cost !== null
+                    ? draft.cost.toLocaleString('ja-JP')
+                    : ''
+                }
                 onChange={(e) => {
                   const raw = e.target.value.replace(/,/g, '');
+                  if (raw === '') {
+                    setDraft({ ...draft, cost: null });
+                    return;
+                  }
                   const num = Number(raw);
                   if (Number.isNaN(num)) return;
                   setDraft({ ...draft, cost: num });
                 }}
-                className="rounded border border-border px-3 py-2"
+                className="rounded border border-border px-3 py-2 text-right"
               />
             </label>
             <div className="flex flex-col gap-1">
