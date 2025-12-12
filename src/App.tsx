@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { useEffect } from 'react';
 import { StartPage } from './pages/sp/StartPage';
 import { PhotoListPage } from './pages/sp/PhotoListPage';
@@ -16,12 +16,10 @@ import { SupplierListPage } from './pages/pc/SupplierListPage';
 import { hydratePersistence } from './services/persistence';
 
 function App() {
-  const location = useLocation();
-
-  // 各ページ遷移時に最新データを取得してキャッシュとストアを更新
+  // 初回マウント時にのみ最新データを取得
   useEffect(() => {
     void hydratePersistence();
-  }, [location.pathname]);
+  }, []);
 
   return (
     <Routes>
