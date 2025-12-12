@@ -64,6 +64,7 @@ export function ProductListPage() {
       ...rest,
       unit: rest.unit ?? '',
       supplierCd: rest.supplierCd ?? '',
+      spec: rest.spec ?? '',
       cost: rest.cost ?? null,
       imageUrls: [...(rest.imageUrls ?? [])],
       departments: [...(rest.departments ?? [])],
