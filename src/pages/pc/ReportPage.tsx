@@ -316,7 +316,7 @@ export function ReportPage() {
     if (!selectedProductId || addQty == null || addQty <= 0) return;
     const selectedProd = products.find((p) => p.id === selectedProductId);
     if (selectedProd && addUnitCost !== selectedProd.cost) {
-      updateProduct(selectedProd.id, { cost: addUnitCost });
+      updateProduct(selectedProd.id, { cost: addUnitCost ?? selectedProd.cost });
     }
     // セッションがない場合は選択中の月・事業部で暫定セッションを作成
     const baseSession =
@@ -331,7 +331,7 @@ export function ReportPage() {
     addManualRecord({
       productId: selectedProductId,
       quantity: addQty,
-      unitCost: addUnitCost,
+      unitCost: addUnitCost ?? undefined,
       unit: selectedProd?.unit ?? 'P',
     });
     setShowAddModal(false);
@@ -871,7 +871,7 @@ export function ReportPage() {
                           inputMode="decimal"
                           onFocus={(e) => e.target.select()}
                           value={
-                            Number.isFinite(addUnitCost) && addUnitCost != null
+                            addUnitCost != null && Number.isFinite(addUnitCost)
                               ? addUnitCost.toLocaleString('ja-JP')
                               : ''
                           }
