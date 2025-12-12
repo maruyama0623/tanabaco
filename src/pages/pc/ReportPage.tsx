@@ -847,11 +847,11 @@ export function ReportPage() {
               <input
                 type="text"
                 inputMode="decimal"
-                value={Number.isFinite(addQty) ? addQty : ''}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/,/g, '');
-                  if (raw === '') {
+                    value={Number.isFinite(addQty) ? addQty : ''}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/,/g, '');
+                      if (raw === '') {
                     setAddQty(null);
                     return;
                   }

@@ -62,6 +62,7 @@ export function ProductListPage() {
     setEditing(prod);
     setDraft({
       ...rest,
+      unit: rest.unit ?? '',
       cost: rest.cost ?? null,
       imageUrls: [...(rest.imageUrls ?? [])],
       departments: [...(rest.departments ?? [])],
