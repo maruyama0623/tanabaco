@@ -22,6 +22,9 @@ type Draft = {
   spec: string;
   storageType: Product['storageType'];
   imageUrls: string[];
+  supplierCd?: string;
+  spec?: string;
+  storageType?: Product['storageType'];
 };
 
 const emptyDraft = (): Draft => ({
