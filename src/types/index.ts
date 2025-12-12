@@ -14,6 +14,8 @@ export interface Product {
   createdAt: string;
   updatedAt: string;
   imageUrls: string[];
+  featureSummary?: string;
+  featureEmbedding?: number[];
 }
 
 export type PhotoStatus = 'uncounted' | 'counted' | 'assigned';

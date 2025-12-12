@@ -20,7 +20,14 @@ const seedProducts = (): Product[] => {
     const normalized = existing.map((p) => {
       const imageUrls = p.imageUrls ? p.imageUrls : p.imageUrl ? [p.imageUrl] : [];
       const departments: string[] = Array.isArray(p.departments) ? p.departments : defaultDepartments;
-      return { ...p, imageUrls, departments, unit: p.unit ?? 'P' };
+      return {
+        ...p,
+        imageUrls,
+        departments,
+        unit: p.unit ?? 'P',
+        featureSummary: p.featureSummary ?? '',
+        featureEmbedding: Array.isArray(p.featureEmbedding) ? p.featureEmbedding : undefined,
+      };
     });
     persistence.saveProducts(normalized as Product[]);
     return normalized as Product[];
@@ -39,6 +46,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
       imageUrls: [...(input.imageUrls ?? [])],
       departments: [...(input.departments ?? [])],
       unit: input.unit ?? 'P',
+      featureSummary: input.featureSummary ?? '',
+      featureEmbedding: input.featureEmbedding ?? undefined,
     };
     const next = [product, ...get().products];
     persistence.saveProducts(next);
@@ -57,6 +66,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
         imageUrls: [...nextImages],
         departments: [...nextDepartments],
         unit: patch.unit ?? rest.unit ?? 'P',
+        featureSummary: patch.featureSummary ?? rest.featureSummary ?? '',
+        featureEmbedding: patch.featureEmbedding ?? rest.featureEmbedding ?? undefined,
         updatedAt: new Date().toISOString(),
       } as Product;
     });

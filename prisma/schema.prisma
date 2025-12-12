@@ -21,6 +21,8 @@ model Product {
   updatedAt    String
   imageUrls    Json
   departments  Json
+  featureSummary   String?
+  featureEmbedding Json?
   photos       PhotoRecord[]
 }
 
