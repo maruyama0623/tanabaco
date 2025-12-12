@@ -40,12 +40,25 @@ const toStringArray = (value: Prisma.JsonValue | null | undefined): string[] => 
   return [];
 };
 
+const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
+
 const truncate = (text: string | null | undefined, max = 140) => {
   if (!text) return '';
   return text.length > max ? `${text.slice(0, max)}…` : text;
 };
 
 const monthKey = (d: string) => (d ?? '').slice(0, 7);
+
+const getValidProductIdSet = async () => {
+  const ids = await prisma.product.findMany({ select: { id: true } });
+  return new Set(ids.map((p) => p.id));
+};
+
+const sanitizeProductId = (photoRecords: any[], validProductIds: Set<string>) =>
+  photoRecords.map((p) => ({
+    ...p,
+    productId: p.productId && validProductIds.has(p.productId) ? p.productId : null,
+  }));
 
 app.get('/api/products', async (_req, res) => {
   const products = await prisma.product.findMany();
@@ -71,8 +84,23 @@ app.post('/api/ai-search', async (req, res) => {
     const { query, photoUrl, department } = req.body ?? {};
     const userQuery = (query ?? '').toString().slice(0, 500);
 
-    const products = await prisma.product.findMany();
+    const [products, assignedPhotos] = await Promise.all([
+      prisma.product.findMany(),
+      prisma.photoRecord.findMany({
+        where: { productId: { not: null } },
+        select: { productId: true, imageUrl: true, imageUrls: true },
+        orderBy: { takenAt: 'desc' },
+      }),
+    ]);
     if (!products.length) return res.json({ suggestions: [], message: 'no-products' });
+
+    const productPhotoMap = assignedPhotos.reduce<Record<string, string[]>>((acc, p) => {
+      const urls = uniq([p.imageUrl, ...toStringArray(p.imageUrls as any)]).filter(Boolean);
+      if (!urls.length || !p.productId) return acc;
+      const current = acc[p.productId] ?? [];
+      acc[p.productId] = uniq([...current, ...urls]).slice(0, 3);
+      return acc;
+    }, {});
 
     const catalog = products
       .filter((p) => {
@@ -88,6 +116,8 @@ app.post('/api/ai-search', async (req, res) => {
         storageType: truncate((p as any).storageType ?? '', 32),
         unit: (p as any).unit ?? 'P',
         departments: toStringArray(p.departments),
+        imageUrls: uniq(toStringArray(p.imageUrls as any)).slice(0, 3),
+        samplePhotos: productPhotoMap[p.id] ?? [],
       }));
     if (!catalog.length) return res.json({ suggestions: [], message: 'no-products' });
 
@@ -97,8 +127,9 @@ app.post('/api/ai-search', async (req, res) => {
       {
         type: 'text',
         text: [
-          'ユーザーからの商品説明やメモに基づいて、以下のカタログの中から最適な商品を上位5件まで選んでください。',
-          '必ずJSONオブジェクトで回答してください。スキーマは { "suggestions": [ { "productId": string, "reason": string, "confidence": 0-1 } ] } です。',
+          'ユーザー写真とメモ、カタログ商品(画像付き)をもとに、最も近い商品を信頼度順に上位3件だけ返してください。',
+          '画像内の文字（ラベル、商品名、容量、メーカー名）一致を重視し、形状・色も参考にしてください。',
+          '必ずJSONオブジェクトで回答: { "suggestions": [ { "productId": string, "reason": string, "confidence": 0-1 } ] } 。confidenceの高い順に並べてください。',
           `ユーザー入力: ${userQuery || '写真から商品を推定してください。'}`,
           `カタログ: ${JSON.stringify(catalog)}`,
         ].join('\n'),
@@ -143,13 +174,17 @@ app.post('/api/ai-search', async (req, res) => {
                 ? Math.max(0, Math.min(1, s.confidence))
                 : typeof s.score === 'number'
                   ? Math.max(0, Math.min(1, s.score))
-                  : undefined,
+                  : 0,
           }))
           .filter((s: any) => catalog.some((c) => c.id === s.productId))
       : [];
 
+    const sorted = suggestions.sort(
+      (a, b) => (b.confidence ?? 0) - (a.confidence ?? 0),
+    );
+
     res.json({
-      suggestions,
+      suggestions: sorted.slice(0, 3),
       model: openaiModel,
       totalTokens: completion.usage?.total_tokens ?? undefined,
     });
@@ -204,6 +239,8 @@ app.post('/api/session', async (req, res) => {
     return res.json({ ok: true });
   }
   const { photoRecords = [], ...rest } = session;
+  const validProductIds = await getValidProductIdSet();
+  const sanitizedPhotos = sanitizeProductId(photoRecords, validProductIds);
   const mk = monthKey(rest.inventoryDate);
   const existingLock = await prisma.inventorySession.findUnique({
     where: { department_monthKey: { department: rest.department, monthKey: mk } },
@@ -230,9 +267,9 @@ app.post('/api/session', async (req, res) => {
       create: sessionData,
     });
     await tx.photoRecord.deleteMany({ where: { sessionId: targetId } });
-    if (photoRecords.length) {
+    if (sanitizedPhotos.length) {
       await tx.photoRecord.createMany({
-        data: photoRecords.map((p: any) => ({
+        data: sanitizedPhotos.map((p: any) => ({
           ...p,
           sessionId: targetId,
           department: rest.department,
@@ -255,6 +292,7 @@ app.get('/api/history', async (_req, res) => {
 
 app.post('/api/history', async (req, res) => {
   const history = (req.body ?? []) as any[];
+  const validProductIds = await getValidProductIdSet();
   await prisma.$transaction(async (tx) => {
     const oldSessions = await tx.inventorySession.findMany({
       where: { isCurrent: false },
@@ -291,9 +329,10 @@ app.post('/api/history', async (req, res) => {
         },
       });
       await tx.photoRecord.deleteMany({ where: { sessionId: targetId } });
-      if (photoRecords.length) {
+      const sanitizedPhotos = sanitizeProductId(photoRecords, validProductIds);
+      if (sanitizedPhotos.length) {
         await tx.photoRecord.createMany({
-          data: photoRecords.map((p: any) => ({
+          data: sanitizedPhotos.map((p: any) => ({
             ...p,
             department: rest.department,
             inventoryDate: rest.inventoryDate,

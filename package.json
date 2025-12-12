@@ -20,11 +20,11 @@
     "express": "^4.19.2",
     "localtunnel": "^2.0.2",
     "nanoid": "^5.1.6",
+    "openai": "^4.104.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.10.1",
-    "zustand": "^5.0.9",
-    "openai": "^4.77.4"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
