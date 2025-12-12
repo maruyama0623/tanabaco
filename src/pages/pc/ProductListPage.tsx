@@ -11,12 +11,17 @@ import { useMasterStore } from '../../store/masterStore';
 import { SupplierSelector } from '../../components/common/SupplierSelector';
 import { formatYen } from '../../utils/number';
 
-type Draft = Omit<Product, 'id' | 'createdAt' | 'updatedAt'> & {
+type Draft = {
+  productCd: string;
+  name: string;
   cost: number | null;
   unit?: string;
+  departments: string[];
+  supplierName: string;
   supplierCd?: string;
   spec?: string;
   storageType?: Product['storageType'];
+  imageUrls: string[];
 };
 
 const emptyDraft = (): Draft => ({
