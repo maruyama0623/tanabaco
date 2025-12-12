@@ -5,14 +5,11 @@ import { PrismaClient, Prisma } from '@prisma/client';
 const prisma = new PrismaClient();
 const app = express();
 
-// CORS 設定（Netlify 本番＋ローカルを許可）
-const allowedOrigins = [
-  'https://astonishing-parfait-518735.netlify.app',
-  'http://localhost:5173',
-];
+// CORS 設定
+// Render 経由で Netlify やローカルからのアクセスを許可。Origin を限定すると環境ごとに弾かれやすいためワイルドカードで許可。
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   }),
