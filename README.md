@@ -9,6 +9,11 @@ npm install
 npm run dev
 ```
 
+### ChatGPT連携AI検索
+- `.env` などで `OPENAI_API_KEY`（必要に応じて `OPENAI_MODEL`、既定は `gpt-4o-mini`）をサーバー環境に設定してください。
+- APIサーバーは `npm run server` で起動します。フロントの環境変数 `VITE_API_BASE` がデフォルトなら `http://localhost:4000/api` を参照します。
+- 商品割当モーダルの「AI検索」タブで、写真とメモを送信して候補を取得できます。内部では `/api/ai-search` でChatGPTに商品マスタを渡し、上位5件を返します。
+
 ## 主な画面とルーティング
 - `/sp/start` (SP_1): 棚卸開始設定。棚卸日・事業部・担当者を入力しセッション開始。
 - `/sp/list` (SP_2/5): 撮影済み写真の3列グリッド。数量は右下表示。下部固定「写真を撮る」。

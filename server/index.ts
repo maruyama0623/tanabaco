@@ -1,9 +1,14 @@
 import express from 'express';
 import cors from 'cors';
+import OpenAI from 'openai';
 import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const app = express();
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const openaiModel = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+const openai =
+  openaiApiKey && openaiApiKey !== 'undefined' ? new OpenAI({ apiKey: openaiApiKey }) : null;
 
 // CORS 設定
 // Render 経由で Netlify やローカルからのアクセスを許可。Origin を限定すると環境ごとに弾かれやすいためワイルドカードで許可。
@@ -29,6 +34,17 @@ const mapProduct = (p: Prisma.ProductUncheckedCreateInput) => {
   };
 };
 
+const toStringArray = (value: Prisma.JsonValue | null | undefined): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((v) => String(v));
+  return [];
+};
+
+const truncate = (text: string | null | undefined, max = 140) => {
+  if (!text) return '';
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+};
+
 const monthKey = (d: string) => (d ?? '').slice(0, 7);
 
 app.get('/api/products', async (_req, res) => {
@@ -44,6 +60,103 @@ app.post('/api/products/bulk', async (req, res) => {
     prisma.product.createMany({ data: products.map(mapProduct) }),
   ]);
   res.json({ ok: true });
+});
+
+app.post('/api/ai-search', async (req, res) => {
+  try {
+    if (!openai) {
+      return res.status(500).json({ error: 'OPENAI_API_KEYが未設定です' });
+    }
+
+    const { query, photoUrl, department } = req.body ?? {};
+    const userQuery = (query ?? '').toString().slice(0, 500);
+
+    const products = await prisma.product.findMany();
+    if (!products.length) return res.json({ suggestions: [], message: 'no-products' });
+
+    const catalog = products
+      .filter((p) => {
+        const depts = toStringArray(p.departments);
+        return department ? depts.includes(department) : true;
+      })
+      .map((p) => ({
+        id: p.id,
+        name: truncate(p.name, 120),
+        productCd: truncate(p.productCd, 120),
+        supplierName: truncate(p.supplierName, 80),
+        spec: truncate((p as any).spec ?? '', 160),
+        storageType: truncate((p as any).storageType ?? '', 32),
+        unit: (p as any).unit ?? 'P',
+        departments: toStringArray(p.departments),
+      }));
+    if (!catalog.length) return res.json({ suggestions: [], message: 'no-products' });
+
+    const userContent: Array<
+      { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } }
+    > = [
+      {
+        type: 'text',
+        text: [
+          'ユーザーからの商品説明やメモに基づいて、以下のカタログの中から最適な商品を上位5件まで選んでください。',
+          '必ずJSONオブジェクトで回答してください。スキーマは { "suggestions": [ { "productId": string, "reason": string, "confidence": 0-1 } ] } です。',
+          `ユーザー入力: ${userQuery || '写真から商品を推定してください。'}`,
+          `カタログ: ${JSON.stringify(catalog)}`,
+        ].join('\n'),
+      },
+    ];
+
+    if (photoUrl) {
+      userContent.push({
+        type: 'image_url',
+        image_url: { url: photoUrl, detail: 'low' },
+      });
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: openaiModel,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an inventory assistant. Choose the best matching products from the catalog and respond with JSON only. If nothing matches, return an empty suggestions array.',
+        },
+        { role: 'user', content: userContent },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+    });
+
+    const content = completion.choices[0]?.message?.content ?? '{}';
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(content);
+    } catch (e) {
+      console.warn('ai-search JSON parse failed', e, content);
+    }
+    const suggestions = Array.isArray(parsed?.suggestions)
+      ? parsed.suggestions
+          .map((s: any) => ({
+            productId: String(s.productId ?? s.id ?? ''),
+            reason: s.reason ?? s.explanation ?? '',
+            confidence:
+              typeof s.confidence === 'number'
+                ? Math.max(0, Math.min(1, s.confidence))
+                : typeof s.score === 'number'
+                  ? Math.max(0, Math.min(1, s.score))
+                  : undefined,
+          }))
+          .filter((s: any) => catalog.some((c) => c.id === s.productId))
+      : [];
+
+    res.json({
+      suggestions,
+      model: openaiModel,
+      totalTokens: completion.usage?.total_tokens ?? undefined,
+    });
+  } catch (error) {
+    console.error('ai-search error', error);
+    res.status(500).json({ error: 'AI検索でエラーが発生しました' });
+  }
 });
 
 app.get('/api/masters', async (_req, res) => {

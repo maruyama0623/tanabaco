@@ -8,6 +8,7 @@ import { Button } from '../../components/common/Button';
 import { Product } from '../../types';
 import { SupplierSelector } from '../../components/common/SupplierSelector';
 import { useMasterStore } from '../../store/masterStore';
+import { requestAiSearch } from '../../services/aiSearchService';
 
 type Tab = 'ai' | 'search' | 'register';
 
@@ -31,6 +32,11 @@ export function AssignModal() {
   const [keyword, setKeyword] = useState('');
   const [supplier, setSupplier] = useState('');
   const [tab, setTab] = useState<Tab>(existingProduct ? 'register' : 'ai');
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiResults, setAiResults] = useState<string[]>([]);
+  const [aiReasons, setAiReasons] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState<Omit<Product, 'id' | 'createdAt' | 'updatedAt'>>(() => {
     if (existingProduct) {
       const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = existingProduct;
@@ -61,10 +67,15 @@ export function AssignModal() {
     };
   });
 
-  const filtered = useMemo(
+  const searchResults = useMemo(
     () => search(keyword, supplier, session?.department),
     [keyword, supplier, search, products, session?.department],
   );
+  const aiCandidates = useMemo(
+    () => aiResults.map((id) => products.find((p) => p.id === id)).filter(Boolean) as Product[],
+    [aiResults, products],
+  );
+  const primaryPhotoUrl = photo?.imageUrls?.[0] ?? photo?.imageUrl ?? '';
 
   // 既存商品の編集モードではフォームを最新の値で埋める
   useEffect(() => {
@@ -136,6 +147,36 @@ export function AssignModal() {
     { key: 'register', label: existingProduct ? '商品更新' : '商品登録' },
   ];
 
+  const runAiSearch = async () => {
+    if (!photo) return;
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await requestAiSearch({
+        query: aiQuery.trim(),
+        photoUrl: primaryPhotoUrl,
+        department: session?.department,
+      });
+      const suggestions = (res.suggestions ?? []).filter((s) => s.productId);
+      setAiReasons(
+        Object.fromEntries(suggestions.map((s) => [s.productId, s.reason ?? '']).filter(([id]) => !!id)),
+      );
+      const ids = suggestions
+        .map((s) => s.productId)
+        .filter((id) => !!id && products.some((p) => p.id === id));
+      setAiResults(ids);
+      if (!ids.length) {
+        setAiError('AI検索で該当候補が見つかりませんでした');
+      } else if (!selected) {
+        setSelected(ids[0]);
+      }
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : 'AI検索に失敗しました');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <Modal open onClose={close}>
       <div className="max-h-[80vh] space-y-4 overflow-y-auto pr-3">
@@ -161,20 +202,47 @@ export function AssignModal() {
 
         {tab === 'ai' && (
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold">こちらの商品ではありませんか？</h3>
-            <div className="space-y-2">
-              {filtered.length ? (
-                filtered.map((prod) => (
-                  <ProductCard
-                    key={prod.id}
-                    product={prod}
-                    selected={selected === prod.id}
-                    onSelect={() => setSelected(prod.id)}
-                  />
+            <h3 className="text-lg font-semibold">AI検索</h3>
+            <p className="text-sm text-gray-600">
+              商品の特徴や用途をメモすると、写真とマスタ情報を元にChatGPTが候補を提案します。
+            </p>
+            <textarea
+              value={aiQuery}
+              onChange={(e) => setAiQuery(e.target.value)}
+              placeholder="例: 業務用・冷凍ポテト / 1kg / サラダバー向け など"
+              className="min-h-[92px] w-full rounded border border-border px-3 py-2 text-sm"
+              disabled={locked}
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button onClick={runAiSearch} disabled={locked || aiLoading || !products.length}>
+                {aiLoading ? 'AIが検索中…' : 'AIに聞く'}
+              </Button>
+              {aiError && <span className="text-sm text-red-600">{aiError}</span>}
+              {!aiError && !aiCandidates.length && (
+                <span className="text-xs text-gray-500">
+                  メモを入力して「AIに聞く」を押すと候補が表示されます
+                </span>
+              )}
+            </div>
+            <div className="space-y-3">
+              {aiCandidates.length ? (
+                aiCandidates.map((prod) => (
+                  <div key={prod.id} className="space-y-1">
+                    <ProductCard
+                      product={prod}
+                      selected={selected === prod.id}
+                      onSelect={() => setSelected(prod.id)}
+                    />
+                    {aiReasons[prod.id] && (
+                      <div className="rounded border border-dashed border-border px-3 py-2 text-xs text-gray-600">
+                        {aiReasons[prod.id]}
+                      </div>
+                    )}
+                  </div>
                 ))
               ) : (
                 <div className="rounded border border-dashed border-border p-3 text-sm text-gray-500">
-                  候補がありません
+                  {aiLoading ? 'AIが候補を探しています…' : 'AI検索の結果がここに表示されます'}
                 </div>
               )}
             </div>
@@ -199,8 +267,8 @@ export function AssignModal() {
               />
             </div>
             <div className="space-y-2">
-              {filtered.length ? (
-                filtered.map((prod) => (
+              {searchResults.length ? (
+                searchResults.map((prod) => (
                   <ProductCard
                     key={prod.id}
                     product={prod}
