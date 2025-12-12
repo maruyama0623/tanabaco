@@ -4,7 +4,21 @@ import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const app = express();
-app.use(cors());
+
+// CORS 設定（Netlify 本番＋ローカルを許可）
+const allowedOrigins = [
+  'https://astonishing-parfait-518735.netlify.app',
+  'http://localhost:5173',
+];
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }),
+);
+app.options('*', cors());
+
 // 画像(Base64)を含むリクエストが大きくなるため余裕を持たせる
 app.use(express.json({ limit: '100mb' }));
 
