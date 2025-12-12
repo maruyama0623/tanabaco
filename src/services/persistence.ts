@@ -23,8 +23,14 @@ const fetchJson = async (path: string, init?: RequestInit) => {
 };
 
 const api = {
-  saveProducts: (products: Product[]) =>
-    fetchJson('/products/bulk', { method: 'POST', body: JSON.stringify({ products }) }),
+  saveProducts: (products: Product[]) => {
+    // 0件で送るとDBを全削除してしまうためガード
+    if (!products || products.length === 0) {
+      console.warn('skip saveProducts because payload is empty');
+      return Promise.resolve();
+    }
+    return fetchJson('/products/bulk', { method: 'POST', body: JSON.stringify({ products }) });
+  },
   saveSession: (session: InventorySession | null) =>
     fetchJson('/session', { method: 'POST', body: JSON.stringify(withSessionId(session)) }),
   saveHistory: (history: InventorySession[]) =>
@@ -32,8 +38,17 @@ const api = {
       method: 'POST',
       body: JSON.stringify(withSessionIdHistory(history)),
     }),
-  saveMasters: (masters: MasterData) =>
-    fetchJson('/masters', { method: 'POST', body: JSON.stringify(masters) }),
+  saveMasters: (masters: MasterData) => {
+    const total =
+      (masters?.departments?.length ?? 0) +
+      (masters?.staffMembers?.length ?? 0) +
+      (masters?.suppliers?.length ?? 0);
+    if (!total) {
+      console.warn('skip saveMasters because payload is empty');
+      return Promise.resolve();
+    }
+    return fetchJson('/masters', { method: 'POST', body: JSON.stringify(masters) });
+  },
   getProducts: () => fetchJson('/products'),
   getSession: () => fetchJson('/session'),
   getHistory: () => fetchJson('/history'),
