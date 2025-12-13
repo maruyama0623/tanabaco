@@ -147,6 +147,26 @@ const generateFeatureSummary = async (product: any) => {
   );
 };
 
+const generateSummaryFromImage = async (img: string, fallbackText = '') => {
+  if (img && typeof img === 'string' && img.startsWith('http')) {
+    const completion = await openai?.chat.completions.create({
+      model: openaiModel,
+      messages: [
+        { role: 'system', content: '写真から商品・荷姿を20〜40文字で要約してください。ラベルの文字、容量、ブランド、色形状を簡潔に。' },
+        {
+          role: 'user',
+          content: [{ type: 'image_url', image_url: { url: img, detail: 'low' } }],
+        },
+      ],
+      max_tokens: 80,
+      temperature: 0.2,
+    });
+    const text = completion?.choices?.[0]?.message?.content ?? '';
+    if (text) return truncate(text, 120);
+  }
+  return fallbackText;
+};
+
 const ensureProductFeature = async (product: any) => {
   if (product.featureSummary && Array.isArray(product.featureEmbedding) && product.featureEmbedding.length) {
     return product;
@@ -236,7 +256,7 @@ app.post('/api/ai-search', async (req, res) => {
     }
 
     const { query, photoUrl, department } = req.body ?? {};
-    const userQuery = (query ?? '').toString().slice(0, 500);
+    let userQuery = (query ?? '').toString().slice(0, 500);
 
     const [products, photoRecords] = await Promise.all([
       prisma.product.findMany(),
@@ -250,7 +270,11 @@ app.post('/api/ai-search', async (req, res) => {
 
     // Embeddingで直接スコアリング（ChatGPTは使わない）
     try {
-      const queryText = [userQuery, department].filter(Boolean).join(' ');
+      let queryText = [userQuery, department].filter(Boolean).join(' ').trim();
+      if (photoUrl && typeof photoUrl === 'string' && photoUrl.startsWith('http')) {
+        const imgSummary = await generateSummaryFromImage(photoUrl, userQuery);
+        queryText = [queryText, imgSummary].filter(Boolean).join(' ').trim() || '写真から商品を推定';
+      }
       const queryEmbedding = await getEmbedding(queryText || '商品を推定');
       if (!queryEmbedding.length) return res.json({ suggestions: [], message: 'embed_failed' });
 
