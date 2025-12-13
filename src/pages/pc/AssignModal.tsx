@@ -68,13 +68,24 @@ export function AssignModal() {
   });
 
   const searchResults = useMemo(() => {
-    const kw = keyword.trim().toLowerCase();
-    const sp = supplier.trim().toLowerCase();
+    const normalize = (s: string) => {
+      const nk = s.normalize('NFKC').toLowerCase();
+      const hira = Array.from(nk)
+        .map((ch) => {
+          const code = ch.charCodeAt(0);
+          return code >= 0x30a1 && code <= 0x30f3 ? String.fromCharCode(code - 0x60) : ch;
+        })
+        .join('');
+      return hira.replace(/[\s\u3000]+/g, '');
+    };
+    const kw = normalize(keyword.trim());
+    const sp = normalize(supplier.trim());
     return products.filter((p) => {
-      const matchKw = kw
-        ? Boolean(p.name?.toLowerCase().includes(kw) || p.productCd?.toLowerCase().includes(kw))
-        : true;
-      const matchSp = sp ? Boolean(p.supplierName?.toLowerCase().includes(sp)) : true;
+      const nameN = normalize(p.name ?? '');
+      const cdN = normalize(p.productCd ?? '');
+      const supN = normalize(p.supplierName ?? '');
+      const matchKw = kw ? nameN.includes(kw) || cdN.includes(kw) : true;
+      const matchSp = sp ? supN.includes(sp) : true;
       const matchDept = session?.department
         ? // 部門未設定の商品は全事業部で検索可とする
           ((p.departments ?? []).length === 0 || (p.departments ?? []).includes(session.department))

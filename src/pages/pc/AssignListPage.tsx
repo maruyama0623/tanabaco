@@ -141,12 +141,13 @@ export function AssignListPage() {
             if (!prod) return false;
             const normalize = (s: string) => {
               const nk = s.normalize('NFKC').toLowerCase();
-              return Array.from(nk)
+              const hira = Array.from(nk)
                 .map((ch) => {
                   const code = ch.charCodeAt(0);
                   return code >= 0x30a1 && code <= 0x30f3 ? String.fromCharCode(code - 0x60) : ch;
                 })
                 .join('');
+              return hira.replace(/[\s\u3000]+/g, '');
             };
             const kw = normalize(searchKeyword.trim());
             const sp = normalize(searchSupplier.trim());

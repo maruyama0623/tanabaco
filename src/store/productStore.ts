@@ -14,7 +14,7 @@ interface ProductState {
 // ひらがな/カタカナ・全半角を揃えて検索しやすくする
 const normalizeKana = (s: string) => {
   const nk = s.normalize('NFKC').toLowerCase();
-  return Array.from(nk)
+  const hira = Array.from(nk)
     .map((ch) => {
       const code = ch.charCodeAt(0);
       // Katakana to Hiragana
@@ -24,6 +24,8 @@ const normalizeKana = (s: string) => {
       return ch;
     })
     .join('');
+  // 空白を除去して比較を緩和
+  return hira.replace(/[\s\u3000]+/g, '');
 };
 
 const seedProducts = (): Product[] => {
