@@ -18,7 +18,7 @@ export function AssignModal() {
   const session = useSessionStore((s) => s.session);
   const history = useSessionStore((s) => s.history);
   const assignProduct = useSessionStore((s) => s.assignProduct);
-  const { addProduct, updateProduct, search, products } = useProductStore();
+  const { addProduct, updateProduct, products } = useProductStore();
   const departments = useMasterStore((s) => s.departments);
   const allPhotos = [
     ...(session?.photoRecords ?? []),
