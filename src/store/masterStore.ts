@@ -69,8 +69,9 @@ export const useMasterStore = create<MasterState>((set, get) => {
     addStaff: (name) => persist({ staffMembers: uniqueList([...getData().staffMembers, name.trim()].filter(Boolean)) }),
     removeStaff: (name) => persist({ staffMembers: getData().staffMembers.filter((v) => v !== name) }),
     upsertSupplier: (supplier) => {
-      const trimmedName = supplier.name.trim();
-      const trimmedCode = supplier.code.trim();
+      const strip = (s: string) => s.trim().replace(/^["']+|["']+$/g, '');
+      const trimmedName = strip(supplier.name);
+      const trimmedCode = strip(supplier.code);
       if (!trimmedCode || !trimmedName) return;
       const others = getData().suppliers.filter((s) => s.code !== trimmedCode);
       persist({ suppliers: [...others, { code: trimmedCode, name: trimmedName }] });

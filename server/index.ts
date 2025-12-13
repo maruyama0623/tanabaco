@@ -568,12 +568,13 @@ app.post(
     const lines = csv.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     // 先頭行がヘッダーの場合を想定: code,name
     const records: { code: string; name: string }[] = [];
+    const stripQuotes = (s: string) => s.replace(/^["']+|["']+$/g, '');
     for (const line of lines) {
       const [a, b] = line.split(',').map((s) => s.trim());
       if (!a || !b) continue;
       // ヘッダーをスキップ
       if (records.length === 0 && a.toLowerCase() === 'code' && b.toLowerCase() === 'name') continue;
-      records.push({ code: a, name: b });
+      records.push({ code: stripQuotes(a), name: stripQuotes(b) });
     }
     if (!records.length) return res.status(400).json({ error: 'no_records' });
     try {
