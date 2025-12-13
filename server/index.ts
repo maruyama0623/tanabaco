@@ -202,6 +202,18 @@ const ensurePhotoFeature = async (photo: any) => {
   return { ...photo, featureSummary: summary, featureEmbedding: emb };
 };
 
+const processPhotoFeatures = async (ids: string[]) => {
+  if (!openai || !ids.length) return;
+  const records = await prisma.photoRecord.findMany({ where: { id: { in: ids } } });
+  for (const r of records) {
+    try {
+      await ensurePhotoFeature(r);
+    } catch (e) {
+      console.warn('auto photo feature failed', r.id, e);
+    }
+  }
+};
+
 app.get('/api/products', async (_req, res) => {
   const products = await prisma.product.findMany();
   res.json(products);
@@ -399,6 +411,11 @@ app.post('/api/session', async (req, res) => {
       });
     }
   });
+  // 特徴を自動付与（新規で受け取ったIDのみ）
+  const newPhotoIds = sanitizedPhotos.map((p: any) => p.id).filter(Boolean);
+  if (newPhotoIds.length) {
+    processPhotoFeatures(newPhotoIds);
+  }
   res.json({ ok: true });
 });
 
@@ -460,6 +477,10 @@ app.post('/api/history', async (req, res) => {
             quantity: p.quantity === null ? null : Number(p.quantity),
           })),
         });
+        const newPhotoIds = sanitizedPhotos.map((p: any) => p.id).filter(Boolean);
+        if (newPhotoIds.length) {
+          processPhotoFeatures(newPhotoIds);
+        }
       }
     }
   });
