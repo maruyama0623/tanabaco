@@ -124,17 +124,13 @@ export function AssignModal() {
   if (!photo) return null;
 
   const handleRegister = () => {
-    const departmentsToSave =
-      draft.departments.length || !session?.department
-        ? draft.departments
-        : [session.department];
     if (existingProduct) {
       // 上書き更新
-      useProductStore.getState().updateProduct(existingProduct.id, { ...draft, departments: departmentsToSave });
+      useProductStore.getState().updateProduct(existingProduct.id, { ...draft, departments: draft.departments });
       setSelected(existingProduct.id);
       return existingProduct.id;
     }
-    const created = addProduct({ ...draft, departments: departmentsToSave });
+    const created = addProduct({ ...draft, departments: draft.departments });
     setSelected(created.id);
     return created.id;
   };
@@ -145,11 +141,7 @@ export function AssignModal() {
 
     // 既存商品を更新するケース
     if (tab === 'register' && existingProduct && targetId === existingProduct.id) {
-      const departmentsToSave =
-        draft.departments.length || !session?.department
-          ? draft.departments
-          : [session.department];
-      updateProduct(existingProduct.id, { ...draft, departments: departmentsToSave });
+      updateProduct(existingProduct.id, { ...draft, departments: draft.departments });
     } else if (!targetId && tab === 'register') {
       // 新規登録ケース
       targetId = handleRegister();

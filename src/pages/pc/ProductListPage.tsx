@@ -75,20 +75,19 @@ export function ProductListPage() {
   };
 
   const handleSave = () => {
-    const departmentsToSave = draft.departments.length ? draft.departments : departments;
     if (editing) {
       updateProduct(editing.id, {
         ...draft,
         cost: draft.cost ?? 0,
         unit: draft.unit || 'P',
-        departments: departmentsToSave,
+        departments: draft.departments,
       });
     } else {
       addProduct({
         ...draft,
         cost: draft.cost ?? 0,
         unit: draft.unit || 'P',
-        departments: departmentsToSave,
+        departments: draft.departments,
       });
     }
     setShowModal(false);

@@ -76,7 +76,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
       if (p.id !== id) return p;
       const { imageUrl: _legacy, ...rest } = p as any;
       const nextImages = patch.imageUrls ?? rest.imageUrls ?? [];
-      const nextDepartments = patch.departments ?? rest.departments ?? [];
+      const nextDepartments =
+        patch.departments !== undefined ? patch.departments : rest.departments ?? [];
       return {
         ...rest,
         ...patch,
