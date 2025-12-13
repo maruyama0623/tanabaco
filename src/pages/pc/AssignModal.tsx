@@ -75,7 +75,10 @@ export function AssignModal() {
         ? Boolean(p.name?.toLowerCase().includes(kw) || p.productCd?.toLowerCase().includes(kw))
         : true;
       const matchSp = sp ? Boolean(p.supplierName?.toLowerCase().includes(sp)) : true;
-      const matchDept = session?.department ? (p.departments ?? []).includes(session.department) : true;
+      const matchDept = session?.department
+        ? // 部門未設定の商品は全事業部で検索可とする
+          ((p.departments ?? []).length === 0 || (p.departments ?? []).includes(session.department))
+        : true;
       return matchKw && matchSp && matchDept;
     });
   }, [keyword, supplier, products, session?.department]);
