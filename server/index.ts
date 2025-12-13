@@ -593,6 +593,17 @@ app.post(
   },
 );
 
+// 仕入先を全削除するエンドポイント
+app.post('/api/suppliers/clear', async (_req, res) => {
+  try {
+    await prisma.supplier.deleteMany();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('suppliers clear error', e);
+    res.status(500).json({ error: 'clear_failed' });
+  }
+});
+
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 app.post('/api/session/lock', async (req, res) => {
