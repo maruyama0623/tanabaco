@@ -140,8 +140,11 @@ export function AssignListPage() {
             const prod = products.find((prod) => prod.id === p.productId);
             const kw = searchKeyword.trim().toLowerCase();
             const sp = searchSupplier.trim().toLowerCase();
-            const matchKeyword = kw ? prod?.name.toLowerCase().includes(kw) : true;
-            const matchSupplier = sp ? prod?.supplierName.toLowerCase().includes(sp) : true;
+            if (!prod) return false;
+            const nameHit = prod.name?.toLowerCase().includes(kw);
+            const cdHit = prod.productCd?.toLowerCase().includes(kw);
+            const matchKeyword = kw ? Boolean(nameHit || cdHit) : true;
+            const matchSupplier = sp ? Boolean(prod.supplierName?.toLowerCase().includes(sp)) : true;
             return matchKeyword && matchSupplier;
           });
 

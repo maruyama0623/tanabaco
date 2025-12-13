@@ -26,6 +26,10 @@ export function MasterPage() {
             setNewDept('');
           }}
           onRemove={removeDepartment}
+          onUpdate={(oldV, newV) => {
+            removeDepartment(oldV);
+            addDepartment(newV);
+          }}
         />
         <MasterSection
           title="担当者マスタ"
@@ -39,23 +43,36 @@ export function MasterPage() {
             setNewStaff('');
           }}
           onRemove={removeStaff}
+          onUpdate={(oldV, newV) => {
+            removeStaff(oldV);
+            addStaff(newV);
+          }}
         />
         <MasterSection
           title="仕入先マスタ"
           description="商品登録時の仕入先選択に表示されます。"
-          items={suppliers.map((s) => `${s.name} (code:${s.code})`)}
-          inputPlaceholder="新しい仕入先名を入力"
+          items={suppliers.map((s) => `${s.code} ${s.name}`)}
+          inputPlaceholder="新しい仕入先（code name）を入力"
           newValue={newSupplier}
           onChangeNewValue={setNewSupplier}
           onAdd={() => {
             const trimmed = newSupplier.trim();
             if (!trimmed) return;
-            upsertSupplier({ code: trimmed, name: trimmed });
+            const [codePart, ...rest] = trimmed.split(/\s+/);
+            const namePart = rest.join(' ') || codePart;
+            upsertSupplier({ code: codePart, name: namePart });
             setNewSupplier('');
           }}
           onRemove={(v) => {
-            const code = v.match(/code:([^)\s]+)/)?.[1] ?? v;
+            const code = v.split(/\s+/)[0];
             removeSupplier(code);
+          }}
+          onUpdate={(oldV, newV) => {
+            const oldCode = oldV.split(/\s+/)[0];
+            const [codePart, ...rest] = newV.trim().split(/\s+/);
+            const namePart = rest.join(' ') || codePart;
+            upsertSupplier({ code: codePart, name: namePart });
+            if (codePart !== oldCode) removeSupplier(oldCode);
           }}
         />
       </div>

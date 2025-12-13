@@ -67,10 +67,18 @@ export function AssignModal() {
     };
   });
 
-  const searchResults = useMemo(
-    () => search(keyword, supplier, session?.department),
-    [keyword, supplier, search, products, session?.department],
-  );
+  const searchResults = useMemo(() => {
+    const kw = keyword.trim().toLowerCase();
+    const sp = supplier.trim().toLowerCase();
+    return products.filter((p) => {
+      const matchKw = kw
+        ? Boolean(p.name?.toLowerCase().includes(kw) || p.productCd?.toLowerCase().includes(kw))
+        : true;
+      const matchSp = sp ? Boolean(p.supplierName?.toLowerCase().includes(sp)) : true;
+      const matchDept = session?.department ? (p.departments ?? []).includes(session.department) : true;
+      return matchKw && matchSp && matchDept;
+    });
+  }, [keyword, supplier, products, session?.department]);
   const aiCandidates = useMemo(
     () => aiResults.map((id) => products.find((p) => p.id === id)).filter(Boolean) as Product[],
     [aiResults, products],
