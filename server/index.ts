@@ -107,6 +107,20 @@ const buildFeatureText = (p: any) => {
     .join(' ');
 };
 
+const buildPhotoFeatureText = (p: any) => {
+  return [
+    p.featureSummary,
+    p.productName,
+    p.productCd,
+    p.productSupplierName,
+    p.productStorageType,
+    p.department,
+    p.inventoryDate,
+  ]
+    .filter(Boolean)
+    .join(' ');
+};
+
 const generateFeatureSummary = async (product: any) => {
   // 画像があれば1枚だけ添付して短い特徴文を生成
   const img = Array.isArray(product.imageUrls) ? product.imageUrls[0] : product.imageUrl;
@@ -146,6 +160,48 @@ const ensureProductFeature = async (product: any) => {
   return { ...product, featureSummary: summary, featureEmbedding: emb };
 };
 
+const ensurePhotoFeature = async (photo: any) => {
+  if (photo.featureSummary && Array.isArray(photo.featureEmbedding) && photo.featureEmbedding.length) {
+    return photo;
+  }
+  // 画像1枚だけで特徴生成を試行
+  const urls = uniq([photo.imageUrl, ...(Array.isArray(photo.imageUrls) ? photo.imageUrls : [])]).filter(Boolean);
+  let summary = photo.featureSummary as string | undefined;
+  if (!summary && urls.length && typeof urls[0] === 'string' && urls[0].startsWith('http')) {
+    const completion = await openai?.chat.completions.create({
+      model: openaiModel,
+      messages: [
+        {
+          role: 'system',
+          content:
+            '写真から商品・荷姿を20〜40文字で要約してください。ラベルの文字、容量、ブランド、色形状を簡潔に。',
+        },
+        {
+          role: 'user',
+          content: [{ type: 'image_url', image_url: { url: urls[0], detail: 'low' } }],
+        },
+      ],
+      max_tokens: 80,
+      temperature: 0.2,
+    });
+    summary = completion?.choices?.[0]?.message?.content ?? '';
+  }
+  if (!summary) {
+    summary = truncate(
+      [photo.productName, photo.productCd, photo.productSupplierName, photo.productStorageType, photo.department]
+        .filter(Boolean)
+        .join(' '),
+      120,
+    );
+  }
+  const emb = await getEmbedding(summary || buildPhotoFeatureText(photo));
+  await prisma.photoRecord.update({
+    where: { id: photo.id },
+    data: { featureSummary: summary, featureEmbedding: emb },
+  });
+  return { ...photo, featureSummary: summary, featureEmbedding: emb };
+};
+
 app.get('/api/products', async (_req, res) => {
   const products = await prisma.product.findMany();
   res.json(products);
@@ -170,140 +226,88 @@ app.post('/api/ai-search', async (req, res) => {
     const { query, photoUrl, department } = req.body ?? {};
     const userQuery = (query ?? '').toString().slice(0, 500);
 
-    const [products, assignedPhotos] = await Promise.all([
+    const [products, photoRecords] = await Promise.all([
       prisma.product.findMany(),
       prisma.photoRecord.findMany({
-        where: { productId: { not: null } },
-        select: { productId: true, imageUrl: true, imageUrls: true },
+        where: department ? { department } : undefined,
         orderBy: { takenAt: 'desc' },
+        take: 200, // トークン削減のため最新のみ
       }),
     ]);
     if (!products.length) return res.json({ suggestions: [], message: 'no-products' });
 
-    // トークン削減: 画像は送らず、カタログ件数を絞る
-    const MAX_CATALOG = 10;
-
-    const productPhotoMap = assignedPhotos.reduce<Record<string, string[]>>((acc, p) => {
-      const urls = uniq([p.imageUrl, ...toStringArray(p.imageUrls as any)]).filter(Boolean);
-      if (!urls.length || !p.productId) return acc;
-      const current = acc[p.productId] ?? [];
-      acc[p.productId] = uniq([...current, ...urls]).slice(0, 3);
-      return acc;
-    }, {});
-
-    const catalog = products
-      .filter((p) => {
-        const depts = toStringArray(p.departments);
-        return department ? depts.includes(department) : true;
-      })
-      .map((p) => ({
-        id: p.id,
-        name: truncate(p.name, 80),
-        productCd: truncate(p.productCd, 80),
-        supplierName: truncate(p.supplierName, 60),
-        spec: truncate((p as any).spec ?? '', 80),
-        storageType: truncate((p as any).storageType ?? '', 16),
-        unit: (p as any).unit ?? 'P',
-        departments: toStringArray(p.departments),
-        // 画像は送らないので保持のみ
-        imageUrls: uniq(toStringArray(p.imageUrls as any)).slice(0, 1),
-        featureSummary: (p as any).featureSummary ?? '',
-        featureEmbedding: Array.isArray((p as any).featureEmbedding) ? (p as any).featureEmbedding : undefined,
-      }));
-    const catalogLimited = catalog.slice(0, MAX_CATALOG);
-    if (!catalogLimited.length) return res.json({ suggestions: [], message: 'no-products' });
-
-    // Embeddingで事前フィルタ（失敗したらそのまま）
-    let rankedCatalog = catalogLimited;
+    // Embeddingで直接スコアリング（ChatGPTは使わない）
     try {
       const queryText = [userQuery, department].filter(Boolean).join(' ');
       const queryEmbedding = await getEmbedding(queryText || '商品を推定');
-      if (queryEmbedding.length) {
-        const withScore = await Promise.all(
-          catalogLimited.map(async (c) => {
-            const feature = c.featureSummary ? c : await ensureProductFeature(c);
-            const featureText = buildFeatureText(feature);
-            const emb =
-              Array.isArray((feature as any).featureEmbedding) && (feature as any).featureEmbedding.length
-                ? ((feature as any).featureEmbedding as number[])
-                : await getEmbedding(featureText);
-            const score = cosineSim(queryEmbedding, emb ?? []);
-            return { item: { ...feature, featureEmbedding: emb }, score };
+      if (!queryEmbedding.length) return res.json({ suggestions: [], message: 'embed_failed' });
+
+      // Products
+      const productCandidates = await Promise.all(
+        products
+          .filter((p) => {
+            const depts = toStringArray(p.departments);
+            return department ? depts.includes(department) : true;
+          })
+          .map(async (p) => {
+            const feature = await ensureProductFeature(p);
+            const emb = Array.isArray((feature as any).featureEmbedding)
+              ? ((feature as any).featureEmbedding as number[])
+              : await getEmbedding(buildFeatureText(feature));
+            return {
+              source: 'product' as const,
+              id: feature.id,
+              productId: feature.id,
+              name: feature.name,
+              featureSummary: feature.featureSummary ?? '',
+              featureEmbedding: emb,
+            };
           }),
-        );
-        rankedCatalog = withScore.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).map((c) => c.item).slice(0, 10);
-      }
+      );
+
+      // PhotoRecords
+      const photoCandidates = await Promise.all(
+        photoRecords.map(async (p) => {
+          const feature = await ensurePhotoFeature(p);
+          const emb = Array.isArray((feature as any).featureEmbedding)
+            ? ((feature as any).featureEmbedding as number[])
+            : await getEmbedding(buildPhotoFeatureText(feature));
+          return {
+            source: 'photo' as const,
+            id: feature.id,
+            productId: feature.productId ?? feature.id,
+            photoRecordId: feature.id,
+            name: feature.productName ?? 'PhotoRecord',
+            featureSummary: feature.featureSummary ?? '',
+            featureEmbedding: emb,
+          };
+        }),
+      );
+
+      const withScore = [...productCandidates, ...photoCandidates].map((c) => ({
+        ...c,
+        confidence: cosineSim(queryEmbedding, c.featureEmbedding ?? []),
+      }));
+
+      const sorted = withScore
+        .filter((c) => c.confidence > 0)
+        .sort((a, b) => b.confidence - a.confidence)
+        .slice(0, 3);
+
+      res.json({
+        suggestions: sorted.map((s) => ({
+          productId: s.productId,
+          photoRecordId: s.source === 'photo' ? s.photoRecordId : undefined,
+          source: s.source,
+          reason: s.featureSummary,
+          confidence: s.confidence,
+        })),
+        model: openaiModel,
+      });
     } catch (e) {
-      console.warn('ai-search embedding skip', e);
+      console.error('ai-search embedding skip', e);
+      res.status(500).json({ error: 'AI検索でエラーが発生しました' });
     }
-
-    // ChatGPTに渡す情報を最小化（id+name+featureSummaryのみ）
-    const compactCatalog = rankedCatalog.map((c) => ({
-      id: c.id,
-      name: c.name,
-      featureSummary: c.featureSummary ?? '',
-    }));
-
-    const userContent: Array<
-      { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } }
-    > = [
-      {
-        type: 'text',
-        text: [
-          'ユーザー写真とメモ、カタログ商品(画像付き)をもとに、最も近い商品を信頼度順に上位3件だけ返してください。',
-          '画像内の文字（ラベル、商品名、容量、メーカー名）一致を重視し、形状・色も参考にしてください。',
-          '必ずJSONオブジェクトで回答: { "suggestions": [ { "productId": string, "reason": string, "confidence": 0-1 } ] } 。confidenceの高い順に並べてください。',
-          `ユーザー入力: ${userQuery || '写真から商品を推定してください。'}`,
-          `カタログ: ${JSON.stringify(compactCatalog)}`,
-        ].join('\n'),
-      },
-    ];
-
-    const completion = await openai.chat.completions.create({
-      model: openaiModel,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are an inventory assistant. Choose the best matching products from the catalog and respond with JSON only. If nothing matches, return an empty suggestions array.',
-        },
-        { role: 'user', content: userContent },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.2,
-    });
-
-    const content = completion.choices[0]?.message?.content ?? '{}';
-    let parsed: any = {};
-    try {
-      parsed = JSON.parse(content);
-    } catch (e) {
-      console.warn('ai-search JSON parse failed', e, content);
-    }
-    const suggestions = Array.isArray(parsed?.suggestions)
-      ? parsed.suggestions
-          .map((s: any) => ({
-            productId: String(s.productId ?? s.id ?? ''),
-            reason: s.reason ?? s.explanation ?? '',
-            confidence:
-              typeof s.confidence === 'number'
-                ? Math.max(0, Math.min(1, s.confidence))
-                : typeof s.score === 'number'
-                  ? Math.max(0, Math.min(1, s.score))
-                  : 0,
-          }))
-          .filter((s: any) => catalog.some((c) => c.id === s.productId))
-      : [];
-
-    const sorted = suggestions.sort(
-      (a, b) => (b.confidence ?? 0) - (a.confidence ?? 0),
-    );
-
-    res.json({
-      suggestions: sorted.slice(0, 3),
-      model: openaiModel,
-      totalTokens: completion.usage?.total_tokens ?? undefined,
-    });
   } catch (error) {
     console.error('ai-search error', error);
     res.status(500).json({ error: 'AI検索でエラーが発生しました' });
@@ -479,6 +483,27 @@ app.post('/api/products/ingest-features', async (_req, res) => {
     res.json({ ok: true, updated });
   } catch (e) {
     console.error('ingest features error', e);
+    res.status(500).json({ error: 'ingest_failed' });
+  }
+});
+
+// PhotoRecord の特徴を生成して保存するバッチ
+app.post('/api/photo-records/ingest-features', async (_req, res) => {
+  try {
+    const records = await prisma.photoRecord.findMany();
+    let updated = 0;
+    for (const r of records) {
+      if (r.featureSummary && Array.isArray(r.featureEmbedding) && (r.featureEmbedding as any)?.length) continue;
+      try {
+        await ensurePhotoFeature(r);
+        updated += 1;
+      } catch (e) {
+        console.warn('ingest photo feature failed', r.id, e);
+      }
+    }
+    res.json({ ok: true, updated });
+  } catch (e) {
+    console.error('ingest photo features error', e);
     res.status(500).json({ error: 'ingest_failed' });
   }
 });
