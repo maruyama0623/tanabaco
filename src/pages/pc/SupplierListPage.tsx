@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { AppHeader } from '../../components/layout/AppHeader';
 import { useMasterStore } from '../../store/masterStore';
 import { Button } from '../../components/common/Button';
@@ -10,6 +10,36 @@ export function SupplierListPage() {
   const [uploading, setUploading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [editMap, setEditMap] = useState<Record<string, { code: string; name: string }>>({});
+
+  useEffect(() => {
+    const next: Record<string, { code: string; name: string }> = {};
+    suppliers.forEach((s) => {
+      next[s.code] = { code: s.code, name: s.name };
+    });
+    setEditMap(next);
+  }, [suppliers]);
+
+  const updateEdit = (origCode: string, key: 'code' | 'name', value: string) => {
+    setEditMap((prev) => ({
+      ...prev,
+      [origCode]: {
+        code: key === 'code' ? value : prev[origCode]?.code ?? origCode,
+        name: key === 'name' ? value : prev[origCode]?.name ?? '',
+      },
+    }));
+  };
+
+  const saveEdit = (origCode: string) => {
+    const draft = editMap[origCode] ?? suppliers.find((s) => s.code === origCode);
+    if (!draft) return;
+    const code = draft.code.trim();
+    const name = draft.name.trim();
+    if (!code || !name) return;
+    // コード変更時は新規upsert → 旧コード削除
+    upsertSupplier({ code, name });
+    if (code !== origCode) removeSupplier(origCode);
+  };
 
   const handleUpload = async (file: File) => {
     setUploading(true);
@@ -134,18 +164,31 @@ export function SupplierListPage() {
                     key={s.code}
                     className="flex items-center justify-between rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
                   >
-                    <div className="flex flex-col">
-                      <span className="font-semibold">{s.name}</span>
-                      <span className="text-xs text-gray-500">code: {s.code}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-1">
+                        <input
+                          value={editMap[s.code]?.name ?? s.name}
+                          onChange={(e) => updateEdit(s.code, 'name', e.target.value)}
+                          className="w-48 rounded border border-border px-2 py-1 text-sm font-semibold"
+                        />
+                        <div className="flex items-center gap-2 text-xs text-gray-600">
+                          <span>code:</span>
+                          <input
+                            value={editMap[s.code]?.code ?? s.code}
+                            onChange={(e) => updateEdit(s.code, 'code', e.target.value)}
+                            className="w-32 rounded border border-border px-2 py-1"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button type="button" variant="primary" size="sm" onClick={() => saveEdit(s.code)}>
+                          保存
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => removeSupplier(s.code)}>
+                          削除
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => removeSupplier(s.code)}
-                    >
-                      削除
-                    </Button>
                   </div>
                 ))
             ) : (

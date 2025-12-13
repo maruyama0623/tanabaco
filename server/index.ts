@@ -604,6 +604,91 @@ app.post('/api/suppliers/clear', async (_req, res) => {
   }
 });
 
+// 商品CSVアップロード: productCd（自社管理商品番号）をキーに upsert
+app.post(
+  '/api/products/upload',
+  express.text({ type: ['text/csv', 'text/plain', 'application/octet-stream'], limit: '10mb' }),
+  async (req, res) => {
+    const csv = (req.body ?? '').toString();
+    if (!csv.trim()) return res.status(400).json({ error: 'empty_csv' });
+    const lines = csv.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const stripQuotes = (s: string) => s.replace(/^["']+|["']+$/g, '');
+    const parseList = (s: string) => stripQuotes(s).split(/[\|;]+/).map((v) => v.trim()).filter(Boolean);
+
+    // ヘッダー判定
+    const header = lines[0].toLowerCase().includes('productcd') ? lines.shift() : null;
+    const headers = header
+      ? header.split(',').map((h) => h.trim().toLowerCase())
+      : ['productcd', 'name', 'cost', 'unit', 'suppliername', 'suppliercd', 'spec', 'storagetype', 'imageurls', 'departments'];
+
+    const records: any[] = [];
+    for (const line of lines) {
+      const cols = line.split(',').map((s) => stripQuotes(s.trim()));
+      const get = (key: string, fallbackIndex: number) => {
+        const i = headers.indexOf(key.toLowerCase());
+        if (i >= 0) return cols[i] ?? '';
+        if (fallbackIndex >= 0 && cols[fallbackIndex] !== undefined) return cols[fallbackIndex] ?? '';
+        return '';
+      };
+      const productCd = get('productcd', 0);
+      const name = get('name', 1);
+      if (!productCd || !name) continue;
+      const costRaw = get('cost', 2);
+      const cost = Number.isFinite(Number(costRaw)) ? Number(costRaw) : 0;
+      const unit = get('unit', 3) || 'P';
+      const supplierName = get('suppliername', 4);
+      const supplierCd = get('suppliercd', 5) || undefined;
+      const spec = get('spec', 6) || undefined;
+      const storageType = get('storagetype', 7) || undefined;
+      const imageUrls = parseList(get('imageurls', 8));
+      const departments = parseList(get('departments', 9));
+      const idIdx = headers.indexOf('id');
+      const id = (idIdx >= 0 ? get('id', idIdx) : '') || productCd;
+      records.push({
+        id,
+        productCd,
+        name,
+        cost,
+        unit,
+        supplierName,
+        supplierCd,
+        spec,
+        storageType,
+        imageUrls,
+        departments,
+      });
+    }
+    if (!records.length) return res.status(400).json({ error: 'no_records' });
+
+    try {
+      const now = new Date().toISOString();
+      for (const r of records) {
+        await prisma.product.upsert({
+          where: { id: r.id },
+          update: { ...r, updatedAt: now },
+          create: { ...r, createdAt: now, updatedAt: now },
+        });
+      }
+      res.json({ ok: true, upserted: records.length });
+    } catch (e) {
+      console.error('product upload error', e);
+      res.status(500).json({ error: 'upload_failed' });
+    }
+  },
+);
+
+// 商品全削除（PhotoRecord の productId 紐付きを先に外してから削除）
+app.post('/api/products/clear', async (_req, res) => {
+  try {
+    await prisma.photoRecord.updateMany({ data: { productId: null } });
+    await prisma.product.deleteMany();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('products clear error', e);
+    res.status(500).json({ error: 'clear_failed' });
+  }
+});
+
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 app.post('/api/session/lock', async (req, res) => {

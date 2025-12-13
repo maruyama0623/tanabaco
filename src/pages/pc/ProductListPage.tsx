@@ -42,12 +42,14 @@ export function ProductListPage() {
   const { addProduct, updateProduct, deleteProduct, search, products } = useProductStore();
   const departments = useMasterStore((s) => s.departments);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const [keyword, setKeyword] = useState('');
   const [supplier, setSupplier] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [uploadingCsv, setUploadingCsv] = useState(false);
 
   const filtered = useMemo(() => search(keyword, supplier), [keyword, supplier, search, products]);
 
@@ -107,6 +109,37 @@ export function ProductListPage() {
     setDraft((d) => ({ ...d, imageUrls: d.imageUrls.filter((_, i) => i !== idx) }));
   };
 
+  const handleCsvUpload = async (file: File) => {
+    setUploadingCsv(true);
+    try {
+      const buf = await file.arrayBuffer();
+      let text = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(buf));
+      if (!text || /�/.test(text)) {
+        try {
+          text = new TextDecoder('shift_jis', { fatal: false }).decode(new Uint8Array(buf));
+        } catch {
+          // ignore
+        }
+      }
+      if (!text.trim()) throw new Error('empty_csv');
+      const apiBase = import.meta.env.VITE_API_BASE ?? 'http://localhost:4000/api';
+      const res = await fetch(`${apiBase}/products/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/csv' },
+        body: text,
+      });
+      if (!res.ok) throw new Error(`upload failed ${res.status}`);
+      const fresh = await fetch(`${apiBase}/products`).then((r) => r.json());
+      useProductStore.setState({ products: fresh });
+      alert('商品CSVを取り込みました');
+    } catch (e) {
+      console.error(e);
+      alert('CSVアップロードに失敗しました');
+    } finally {
+      setUploadingCsv(false);
+    }
+  };
+
   const mobileMenu = (
     <div className="relative">
       <button
@@ -129,6 +162,27 @@ export function ProductListPage() {
             >
               商品登録
             </button>
+            <button
+              className="w-full px-4 py-3 text-left text-sm font-semibold hover:bg-muted"
+              onClick={() => {
+                setShowMobileMenu(false);
+                uploadInputRef.current?.click();
+              }}
+              disabled={uploadingCsv}
+            >
+              CSVアップロード
+            </button>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (f) await handleCsvUpload(f);
+                e.target.value = '';
+              }}
+            />
           </div>
         </>
       )}
@@ -144,6 +198,22 @@ export function ProductListPage() {
             <Button variant="ghost" onClick={() => navigate('/assign')}>
               割当一覧へ
             </Button>
+            <Button variant="secondary" onClick={() => uploadInputRef.current?.click()} disabled={uploadingCsv}>
+              CSVアップロード
+            </Button>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  await handleCsvUpload(f);
+                }
+                e.target.value = '';
+              }}
+            />
             <Button onClick={openNew}>商品登録</Button>
           </div>
         }
