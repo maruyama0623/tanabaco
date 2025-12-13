@@ -77,5 +77,6 @@ model StaffMember {
 }
 
 model Supplier {
-  name String @id
+  code String @id
+  name String
 }

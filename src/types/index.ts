@@ -60,8 +60,13 @@ export interface InventoryReportRow {
   amountDiff: number;
 }
 
+export interface Supplier {
+  code: string;
+  name: string;
+}
+
 export interface MasterData {
   departments: string[];
   staffMembers: string[];
-  suppliers: string[];
+  suppliers: Supplier[];
 }

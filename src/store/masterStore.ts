@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { MasterData } from '../types';
+import { MasterData, Supplier } from '../types';
 import { persistence } from '../services/persistence';
 
 interface MasterState extends MasterData {
@@ -7,14 +7,20 @@ interface MasterState extends MasterData {
   removeDepartment: (name: string) => void;
   addStaff: (name: string) => void;
   removeStaff: (name: string) => void;
-  addSupplier: (name: string) => void;
-  removeSupplier: (name: string) => void;
+  upsertSupplier: (supplier: Supplier) => void;
+  removeSupplier: (code: string) => void;
+  setSuppliers: (suppliers: Supplier[]) => void;
 }
 
 const DEFAULT_MASTER: MasterData = {
   departments: ['産直センター', '精肉センター', '青果センター'],
   staffMembers: ['重原', '兵頭', '山田', '佐藤', '田中'],
-  suppliers: ['遠州中央農業協同組合', '山田商店', '鈴木食品', '東都水産'],
+  suppliers: [
+    { code: 'SUP-001', name: '遠州中央農業協同組合' },
+    { code: 'SUP-002', name: '山田商店' },
+    { code: 'SUP-003', name: '鈴木食品' },
+    { code: 'SUP-004', name: '東都水産' },
+  ],
 };
 
 const uniqueList = (list: string[]) =>
@@ -26,16 +32,19 @@ const seedMasters = (): MasterData => {
     return {
       departments: uniqueList(stored.departments ?? []),
       staffMembers: uniqueList(stored.staffMembers ?? []),
-      suppliers: uniqueList(stored.suppliers ?? []),
+      suppliers:
+        (stored.suppliers ?? []).map((s) =>
+          typeof s === 'string' ? { code: s, name: s } : { code: s.code, name: s.name },
+        ),
     };
   }
-  const suppliersFromProducts = uniqueList(
-    (persistence.getProducts() ?? []).map((p) => p.supplierName ?? ''),
-  );
+  const suppliersFromProducts = uniqueList((persistence.getProducts() ?? []).map((p) => p.supplierName ?? ''));
   return {
     departments: DEFAULT_MASTER.departments,
     staffMembers: DEFAULT_MASTER.staffMembers,
-    suppliers: suppliersFromProducts.length ? suppliersFromProducts : DEFAULT_MASTER.suppliers,
+    suppliers: suppliersFromProducts.length
+      ? suppliersFromProducts.map((name) => ({ code: name, name }))
+      : DEFAULT_MASTER.suppliers,
   };
 };
 
@@ -52,26 +61,21 @@ export const useMasterStore = create<MasterState>((set, get) => {
     set(next);
   };
 
-  const addItem = (key: keyof MasterData, name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const current = getData()[key];
-    if (current.some((v) => v === trimmed)) return;
-    persist({ [key]: uniqueList([...current, trimmed]) } as Partial<MasterData>);
-  };
-
-  const removeItem = (key: keyof MasterData, name: string) => {
-    const trimmed = name.trim();
-    persist({ [key]: getData()[key].filter((v) => v !== trimmed) } as Partial<MasterData>);
-  };
-
   return {
     ...seedMasters(),
-    addDepartment: (name) => addItem('departments', name),
-    removeDepartment: (name) => removeItem('departments', name),
-    addStaff: (name) => addItem('staffMembers', name),
-    removeStaff: (name) => removeItem('staffMembers', name),
-    addSupplier: (name) => addItem('suppliers', name),
-    removeSupplier: (name) => removeItem('suppliers', name),
+    addDepartment: (name) =>
+      persist({ departments: uniqueList([...getData().departments, name.trim()].filter(Boolean)) }),
+    removeDepartment: (name) => persist({ departments: getData().departments.filter((v) => v !== name) }),
+    addStaff: (name) => persist({ staffMembers: uniqueList([...getData().staffMembers, name.trim()].filter(Boolean)) }),
+    removeStaff: (name) => persist({ staffMembers: getData().staffMembers.filter((v) => v !== name) }),
+    upsertSupplier: (supplier) => {
+      const trimmedName = supplier.name.trim();
+      const trimmedCode = supplier.code.trim();
+      if (!trimmedCode || !trimmedName) return;
+      const others = getData().suppliers.filter((s) => s.code !== trimmedCode);
+      persist({ suppliers: [...others, { code: trimmedCode, name: trimmedName }] });
+    },
+    removeSupplier: (code) => persist({ suppliers: getData().suppliers.filter((s) => s.code !== code) }),
+    setSuppliers: (suppliers) => persist({ suppliers }),
   };
 });

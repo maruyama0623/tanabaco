@@ -9,6 +9,7 @@ interface Props {
   onChangeNewValue: (v: string) => void;
   onAdd: () => void;
   onRemove: (v: string) => void;
+  extra?: React.ReactNode;
 }
 
 export function MasterSection({
@@ -20,13 +21,17 @@ export function MasterSection({
   onChangeNewValue,
   onAdd,
   onRemove,
+  extra,
 }: Props) {
   const canAdd = newValue.trim().length > 0;
   return (
     <section className="space-y-3 rounded border border-border p-4 shadow-sm">
-      <div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="text-sm text-gray-600">{description}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <p className="text-sm text-gray-600">{description}</p>
+        </div>
+        {extra}
       </div>
       <div className="flex gap-2">
         <input

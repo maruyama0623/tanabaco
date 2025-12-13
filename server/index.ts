@@ -359,7 +359,7 @@ app.get('/api/masters', async (_req, res) => {
   res.json({
     departments: departments.map((d) => d.name),
     staffMembers: staff.map((s) => s.name),
-    suppliers: suppliers.map((s) => s.name),
+    suppliers: suppliers.map((s) => ({ code: s.code, name: s.name })),
   });
 });
 
@@ -371,7 +371,12 @@ app.post('/api/masters', async (req, res) => {
     prisma.supplier.deleteMany(),
     prisma.department.createMany({ data: (departments as string[]).map((name) => ({ name })) }),
     prisma.staffMember.createMany({ data: (staffMembers as string[]).map((name) => ({ name })) }),
-    prisma.supplier.createMany({ data: (suppliers as string[]).map((name) => ({ name })) }),
+    prisma.supplier.createMany({
+      data: (suppliers as any[]).map((s) => ({
+        code: typeof s === 'string' ? s : s.code,
+        name: typeof s === 'string' ? s : s.name,
+      })),
+    }),
   ]);
   res.json({ ok: true });
 });
@@ -552,6 +557,40 @@ app.post('/api/photo-records/ingest-features', async (_req, res) => {
     res.status(500).json({ error: 'ingest_failed' });
   }
 });
+
+// CSVアップロードで仕入先を登録/更新（キーはcode）
+app.post(
+  '/api/suppliers/upload',
+  express.text({ type: ['text/csv', 'text/plain', 'application/octet-stream'], limit: '5mb' }),
+  async (req, res) => {
+    const csv = (req.body ?? '').toString();
+    if (!csv.trim()) return res.status(400).json({ error: 'empty_csv' });
+    const lines = csv.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    // 先頭行がヘッダーの場合を想定: code,name
+    const records: { code: string; name: string }[] = [];
+    for (const line of lines) {
+      const [a, b] = line.split(',').map((s) => s.trim());
+      if (!a || !b) continue;
+      // ヘッダーをスキップ
+      if (records.length === 0 && a.toLowerCase() === 'code' && b.toLowerCase() === 'name') continue;
+      records.push({ code: a, name: b });
+    }
+    if (!records.length) return res.status(400).json({ error: 'no_records' });
+    try {
+      for (const r of records) {
+        await prisma.supplier.upsert({
+          where: { code: r.code },
+          update: { name: r.name },
+          create: { code: r.code, name: r.name },
+        });
+      }
+      res.json({ ok: true, upserted: records.length });
+    } catch (e) {
+      console.error('supplier upload error', e);
+      res.status(500).json({ error: 'upload_failed' });
+    }
+  },
+);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 

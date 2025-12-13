@@ -145,7 +145,9 @@ export async function hydratePersistence() {
       useMasterStore.setState({
         departments: cacheMasters.departments ?? [],
         staffMembers: cacheMasters.staffMembers ?? [],
-        suppliers: cacheMasters.suppliers ?? [],
+        suppliers: (cacheMasters.suppliers ?? []).map((s: any) =>
+          typeof s === 'string' ? { code: s, name: s } : { code: s.code, name: s.name },
+        ),
       });
     }
   } catch (e) {

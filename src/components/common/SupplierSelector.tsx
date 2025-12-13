@@ -19,13 +19,13 @@ export function SupplierSelector({
 }: Props) {
   const listId = useId();
   const suppliers = useMasterStore((s) => s.suppliers);
-  const addSupplier = useMasterStore((s) => s.addSupplier);
+  const upsertSupplier = useMasterStore((s) => s.upsertSupplier);
   const trimmed = value.trim();
-  const alreadyExists = trimmed ? suppliers.some((s) => s === trimmed) : false;
+  const alreadyExists = trimmed ? suppliers.some((s) => s.name === trimmed) : false;
 
   const handleAdd = () => {
     if (!trimmed) return;
-    addSupplier(trimmed);
+    upsertSupplier({ code: trimmed, name: trimmed });
   };
 
   return (
@@ -51,7 +51,7 @@ export function SupplierSelector({
       </div>
       <datalist id={listId}>
         {suppliers.map((s) => (
-          <option key={s} value={s} />
+          <option key={s.code} value={s.name} />
         ))}
       </datalist>
       {alreadyExists && (

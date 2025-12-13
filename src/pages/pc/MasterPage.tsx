@@ -4,7 +4,7 @@ import { useMasterStore } from '../../store/masterStore';
 import { MasterSection } from '../../components/desktop/MasterSection';
 
 export function MasterPage() {
-  const { departments, staffMembers, suppliers, addDepartment, addStaff, addSupplier, removeDepartment, removeStaff, removeSupplier } =
+  const { departments, staffMembers, suppliers, addDepartment, addStaff, upsertSupplier, removeDepartment, removeStaff, removeSupplier } =
     useMasterStore();
   const [newDept, setNewDept] = useState('');
   const [newStaff, setNewStaff] = useState('');
@@ -43,15 +43,20 @@ export function MasterPage() {
         <MasterSection
           title="仕入先マスタ"
           description="商品登録時の仕入先選択に表示されます。"
-          items={suppliers}
+          items={suppliers.map((s) => `${s.name} (code:${s.code})`)}
           inputPlaceholder="新しい仕入先名を入力"
           newValue={newSupplier}
           onChangeNewValue={setNewSupplier}
           onAdd={() => {
-            addSupplier(newSupplier);
+            const trimmed = newSupplier.trim();
+            if (!trimmed) return;
+            upsertSupplier({ code: trimmed, name: trimmed });
             setNewSupplier('');
           }}
-          onRemove={removeSupplier}
+          onRemove={(v) => {
+            const code = v.match(/code:([^)\s]+)/)?.[1] ?? v;
+            removeSupplier(code);
+          }}
         />
       </div>
     </div>
