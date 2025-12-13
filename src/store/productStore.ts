@@ -11,6 +11,21 @@ interface ProductState {
   search: (keyword: string, supplier: string, department?: string) => Product[];
 }
 
+// ひらがな/カタカナ・全半角を揃えて検索しやすくする
+const normalizeKana = (s: string) => {
+  const nk = s.normalize('NFKC').toLowerCase();
+  return Array.from(nk)
+    .map((ch) => {
+      const code = ch.charCodeAt(0);
+      // Katakana to Hiragana
+      if (code >= 0x30a1 && code <= 0x30f3) {
+        return String.fromCharCode(code - 0x60);
+      }
+      return ch;
+    })
+    .join('');
+};
+
 const seedProducts = (): Product[] => {
   const existing = persistence.getProducts() as any[];
   if (existing.length) {
@@ -80,15 +95,28 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ products: next });
   },
   search: (keyword, supplier, department) => {
-    const kw = keyword.trim().toLowerCase();
-    const sp = supplier.trim().toLowerCase();
-    return get().products.filter((p) => {
-      const matchKeyword = kw ? p.name.toLowerCase().includes(kw) : true;
-      const matchSupplier = sp ? p.supplierName.toLowerCase().includes(sp) : true;
-      const matchDepartment = department
-        ? (p.departments ?? []).includes(department)
-        : true;
-      return matchKeyword && matchSupplier && matchDepartment;
-    });
+    const kw = normalizeKana(keyword.trim());
+    const sp = normalizeKana(supplier.trim());
+    const hasDept = Boolean(department);
+    const list = get().products
+      .filter((p) => {
+        const nameN = normalizeKana(p.name ?? '');
+        const cdN = normalizeKana(p.productCd ?? '');
+        const supN = normalizeKana(p.supplierName ?? '');
+        const matchKeyword = kw ? nameN.includes(kw) || cdN.includes(kw) : true;
+        const matchSupplier = sp ? supN.includes(sp) : true;
+        const matchDepartment = department
+          ? (p.departments ?? []).length === 0 || (p.departments ?? []).includes(department)
+          : true;
+        return matchKeyword && matchSupplier && matchDepartment;
+      })
+      .sort((a, b) => {
+        if (!hasDept) return 0;
+        const aMatch = (a.departments ?? []).includes(department!);
+        const bMatch = (b.departments ?? []).includes(department!);
+        if (aMatch === bMatch) return 0;
+        return aMatch ? -1 : 1; // 部門一致を優先
+      });
+    return list;
   },
 }));

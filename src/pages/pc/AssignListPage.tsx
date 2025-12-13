@@ -138,13 +138,23 @@ export function AssignListPage() {
           .filter((p) => p.status === 'assigned')
           .filter((p) => {
             const prod = products.find((prod) => prod.id === p.productId);
-            const kw = searchKeyword.trim().toLowerCase();
-            const sp = searchSupplier.trim().toLowerCase();
             if (!prod) return false;
-            const nameHit = prod.name?.toLowerCase().includes(kw);
-            const cdHit = prod.productCd?.toLowerCase().includes(kw);
-            const matchKeyword = kw ? Boolean(nameHit || cdHit) : true;
-            const matchSupplier = sp ? Boolean(prod.supplierName?.toLowerCase().includes(sp)) : true;
+            const normalize = (s: string) => {
+              const nk = s.normalize('NFKC').toLowerCase();
+              return Array.from(nk)
+                .map((ch) => {
+                  const code = ch.charCodeAt(0);
+                  return code >= 0x30a1 && code <= 0x30f3 ? String.fromCharCode(code - 0x60) : ch;
+                })
+                .join('');
+            };
+            const kw = normalize(searchKeyword.trim());
+            const sp = normalize(searchSupplier.trim());
+            const nameN = normalize(prod?.name ?? '');
+            const cdN = normalize(prod?.productCd ?? '');
+            const supN = normalize(prod?.supplierName ?? '');
+            const matchKeyword = kw ? nameN.includes(kw) || cdN.includes(kw) : true;
+            const matchSupplier = sp ? supN.includes(sp) : true;
             return matchKeyword && matchSupplier;
           });
 
