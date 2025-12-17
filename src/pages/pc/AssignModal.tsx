@@ -66,6 +66,11 @@ export function AssignModal() {
             : [],
     };
   });
+  const photoImages = useMemo(
+    () => (photo?.imageUrls?.length ? photo.imageUrls : photo ? [photo.imageUrl] : []),
+    [photo],
+  );
+  const [currentImage, setCurrentImage] = useState(photoImages[0] ?? '');
 
   const searchResults = useMemo(() => {
     const normalize = (s: string) => {
@@ -97,7 +102,13 @@ export function AssignModal() {
     () => aiResults.map((id) => products.find((p) => p.id === id)).filter(Boolean) as Product[],
     [aiResults, products],
   );
-  const primaryPhotoUrl = photo?.imageUrls?.[0] ?? photo?.imageUrl ?? '';
+  const primaryPhotoUrl = currentImage || photoImages[0] || '';
+
+  useEffect(() => {
+    if (photoImages.length) {
+      setCurrentImage(photoImages[0]);
+    }
+  }, [photoImages]);
 
   // 既存商品の編集モードではフォームを最新の値で埋める
   useEffect(() => {
@@ -193,235 +204,270 @@ export function AssignModal() {
 
   return (
     <Modal open onClose={close}>
-      <div className="max-h-[80vh] space-y-4 overflow-y-auto pr-3">
-        <div className="flex gap-2">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => !locked && setTab(t.key)}
-              className={`rounded border px-3 py-2 text-sm font-semibold ${
-                tab === t.key ? 'border-primary bg-primary text-white' : 'border-border bg-white text-gray-700'
-              }`}
-              disabled={locked}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        {locked && (
-          <div className="rounded border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700">
-            この月は確定済みのため商品割り当ては変更できません
-          </div>
-        )}
-
-        {tab === 'ai' && (
-          <section className="space-y-3">
-            <h3 className="text-lg font-semibold">AI検索</h3>
-            <p className="text-sm text-gray-600">
-              商品の特徴や用途をメモすると、写真とマスタ情報を元にChatGPTが候補を提案します。
-            </p>
-            <textarea
-              value={aiQuery}
-              onChange={(e) => setAiQuery(e.target.value)}
-              placeholder="例: 業務用・冷凍ポテト / 1kg / サラダバー向け など"
-              className="min-h-[92px] w-full rounded border border-border px-3 py-2 text-sm"
-              disabled={locked}
-            />
-            <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={runAiSearch} disabled={locked || aiLoading || !products.length}>
-                {aiLoading ? 'AIが検索中…' : 'AIに聞く'}
-              </Button>
-              {aiError && <span className="text-sm text-red-600">{aiError}</span>}
-              {!aiError && !aiCandidates.length && (
-                <span className="text-xs text-gray-500">
-                  メモを入力して「AIに聞く」を押すと候補が表示されます
-                </span>
+      <div className="max-h-[80vh] pr-1">
+        <div className="flex flex-col gap-4 overflow-hidden lg:flex-row lg:gap-6 lg:max-h-[72vh]">
+          <div className="w-full space-y-3 lg:w-1/2 lg:max-h-[72vh] lg:overflow-hidden">
+            <h3 className="text-lg font-semibold">撮影した画像一覧</h3>
+            <div className="relative overflow-hidden rounded-lg border border-border bg-white shadow-sm">
+              {primaryPhotoUrl ? (
+                <img
+                  src={primaryPhotoUrl}
+                  alt="撮影画像"
+                  className="h-full w-full max-h-[360px] bg-gray-50 object-contain"
+                />
+              ) : (
+                <div className="flex h-[320px] items-center justify-center text-sm text-gray-500">画像がありません</div>
               )}
             </div>
-            <div className="space-y-3">
-              {aiCandidates.length ? (
-                aiCandidates.map((prod) => (
-                  <div key={prod.id} className="space-y-1">
-                    <ProductCard
-                      product={prod}
-                      selected={selected === prod.id}
-                      onSelect={() => setSelected(prod.id)}
-                    />
-                    {aiReasons[prod.id] && (
-                      <div className="rounded border border-dashed border-border px-3 py-2 text-xs text-gray-600">
-                        {aiReasons[prod.id]}
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {photoImages.map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentImage(img)}
+                  className={`h-20 w-24 flex-shrink-0 overflow-hidden rounded border ${
+                    currentImage === img ? 'border-primary ring-2 ring-primary/40' : 'border-border'
+                  }`}
+                >
+                  <img src={img} alt={`thumb-${idx}`} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative flex w-full flex-col gap-3 lg:w-1/2 lg:max-h-[72vh] lg:overflow-hidden">
+            <div className="flex gap-2 shrink-0">
+              {tabs.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => !locked && setTab(t.key)}
+                  className={`rounded border px-3 py-2 text-sm font-semibold ${
+                    tab === t.key ? 'border-primary bg-primary text-white' : 'border-border bg-white text-gray-700'
+                  }`}
+                  disabled={locked}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            {locked && (
+              <div className="rounded border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700">
+                この月は確定済みのため商品割り当ては変更できません
+              </div>
+            )}
+
+            <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+              {tab === 'ai' && (
+                <section className="space-y-3">
+                  <h3 className="text-lg font-semibold">AI検索</h3>
+                  <p className="text-sm text-gray-600">
+                    商品の特徴や用途をメモすると、写真とマスタ情報を元にChatGPTが候補を提案します。
+                  </p>
+                  <textarea
+                    value={aiQuery}
+                    onChange={(e) => setAiQuery(e.target.value)}
+                    placeholder="例: 業務用・冷凍ポテト / 1kg / サラダバー向け など"
+                    className="min-h-[92px] w-full rounded border border-border px-3 py-2 text-sm"
+                    disabled={locked}
+                  />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button onClick={runAiSearch} disabled={locked || aiLoading || !products.length}>
+                      {aiLoading ? 'AIが検索中…' : 'AIに聞く'}
+                    </Button>
+                    {aiError && <span className="text-sm text-red-600">{aiError}</span>}
+                    {!aiError && !aiCandidates.length && (
+                      <span className="text-xs text-gray-500">
+                        メモを入力して「AIに聞く」を押すと候補が表示されます
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {aiCandidates.length ? (
+                      aiCandidates.map((prod) => (
+                        <div key={prod.id} className="space-y-1">
+                          <ProductCard
+                            product={prod}
+                            selected={selected === prod.id}
+                            onSelect={() => setSelected(prod.id)}
+                          />
+                          {aiReasons[prod.id] && (
+                            <div className="rounded border border-dashed border-border px-3 py-2 text-xs text-gray-600">
+                              {aiReasons[prod.id]}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded border border-dashed border-border p-3 text-sm text-gray-500">
+                        {aiLoading ? 'AIが候補を探しています…' : 'AI検索の結果がここに表示されます'}
                       </div>
                     )}
                   </div>
-                ))
-              ) : (
-                <div className="rounded border border-dashed border-border p-3 text-sm text-gray-500">
-                  {aiLoading ? 'AIが候補を探しています…' : 'AI検索の結果がここに表示されます'}
-                </div>
+                </section>
               )}
-            </div>
-          </section>
-        )}
 
-        {tab === 'search' && (
-          <section className="space-y-3">
-            <h3 className="text-lg font-semibold">商品検索</h3>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              <input
-                placeholder="商品名"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                className="w-full rounded border border-border px-3 py-2"
-              />
-              <input
-                placeholder="仕入先"
-                value={supplier}
-                onChange={(e) => setSupplier(e.target.value)}
-                className="w-full rounded border border-border px-3 py-2"
-              />
-            </div>
-            <div className="space-y-2">
-              {searchResults.length ? (
-                searchResults.map((prod) => (
-                  <ProductCard
-                    key={prod.id}
-                    product={prod}
-                    selected={selected === prod.id}
-                    onSelect={() => setSelected(prod.id)}
-                  />
-                ))
-              ) : (
-                <div className="rounded border border-dashed border-border p-3 text-sm text-gray-500">
-                  該当の商品がありません
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {tab === 'register' && (
-          <section className="space-y-3">
-            <h3 className="text-lg font-semibold">商品を登録する</h3>
-            <div className="flex flex-col gap-3 rounded border border-border p-3">
-              <label className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-gray-700">商品名</span>
-                <input
-                  placeholder="商品名"
-                  value={draft.name}
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                  className="rounded border border-border px-3 py-2"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-gray-700">自社管理商品CD</span>
-                <input
-                  placeholder="自社管理商品CD"
-                  value={draft.productCd}
-                  onChange={(e) => setDraft({ ...draft, productCd: e.target.value })}
-                  className="rounded border border-border px-3 py-2"
-                />
-              </label>
-              <SupplierSelector
-                value={draft.supplierName}
-                onChange={(value) => setDraft({ ...draft, supplierName: value })}
-                className="w-full"
-              />
-              <div>
-                <span className="text-sm font-semibold text-gray-700">対応事業部（複数選択可）</span>
-                <div className="mt-2 flex flex-wrap gap-2 rounded border border-border px-3 py-2">
-                  {departments.map((dpt) => (
-                    <label key={dpt} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={draft.departments.includes(dpt)}
-                        onChange={() =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            departments: prev.departments.includes(dpt)
-                              ? prev.departments.filter((v) => v !== dpt)
-                              : [...prev.departments, dpt],
-                          }))
-                        }
-                      />
-                      {dpt}
-                    </label>
-                  ))}
-                  {!departments.length && (
-                    <span className="text-sm text-gray-500">事業部がありません</span>
-                  )}
-                </div>
-              </div>
-              <label className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-gray-700">規格</span>
-                <input
-                  placeholder="規格"
-                  value={draft.spec}
-                  onChange={(e) => setDraft({ ...draft, spec: e.target.value })}
-                  className="rounded border border-border px-3 py-2"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-gray-700">単位</span>
-                <input
-                  placeholder="例: P, 個, kg"
-                  value={draft.unit ?? ''}
-                  onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
-                  className="rounded border border-border px-3 py-2"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-gray-700">単価</span>
-                <input
-                  placeholder="単価"
-                  inputMode="numeric"
-                  value={draft.cost ? draft.cost.toLocaleString('ja-JP') : ''}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/,/g, '');
-                    const num = Number(raw);
-                    if (Number.isNaN(num)) return;
-                    setDraft({ ...draft, cost: num });
-                  }}
-                  className="rounded border border-border px-3 py-2"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-gray-700">保存区分</span>
-                <select
-                  value={draft.storageType}
-                  onChange={(e) => setDraft({ ...draft, storageType: e.target.value as Product['storageType'] })}
-                  className="rounded border border-border px-3 py-2"
-                >
-                  <option value="冷凍">冷凍</option>
-                  <option value="冷蔵">冷蔵</option>
-                  <option value="常温">常温</option>
-                  <option value="その他">その他</option>
-                </select>
-              </label>
-              <div className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-gray-700">棚卸写真</span>
-                <div className="flex flex-wrap gap-2">
-                  {(draft.imageUrls ?? []).map((img, idx) => (
-                  <div key={idx} className="relative">
-                    <img
-                      src={img}
-                      alt="preview"
-                      className="h-14 w-18 rounded border border-border object-cover"
+              {tab === 'search' && (
+                <section className="space-y-3">
+                  <h3 className="text-lg font-semibold">商品検索</h3>
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <input
+                      placeholder="商品名"
+                      value={keyword}
+                      onChange={(e) => setKeyword(e.target.value)}
+                      className="w-full rounded border border-border px-3 py-2"
+                    />
+                    <input
+                      placeholder="仕入先"
+                      value={supplier}
+                      onChange={(e) => setSupplier(e.target.value)}
+                      className="w-full rounded border border-border px-3 py-2"
                     />
                   </div>
-                ))}
-                {!(draft.imageUrls ?? []).length && (
-                  <span className="text-sm text-gray-500">棚卸写真が自動で添付されます</span>
-                )}
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    {searchResults.length ? (
+                      searchResults.map((prod) => (
+                        <ProductCard
+                          key={prod.id}
+                          product={prod}
+                          selected={selected === prod.id}
+                          onSelect={() => setSelected(prod.id)}
+                        />
+                      ))
+                    ) : (
+                      <div className="rounded border border-dashed border-border p-3 text-sm text-gray-500">
+                        該当の商品がありません
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {tab === 'register' && (
+                <section className="space-y-3">
+                  <h3 className="text-lg font-semibold">商品を登録する</h3>
+                  <div className="flex flex-col gap-3 rounded border border-border p-3">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold text-gray-700">商品名</span>
+                      <input
+                        placeholder="商品名"
+                        value={draft.name}
+                        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                        className="rounded border border-border px-3 py-2"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold text-gray-700">自社管理商品CD</span>
+                      <input
+                        placeholder="自社管理商品CD"
+                        value={draft.productCd}
+                        onChange={(e) => setDraft({ ...draft, productCd: e.target.value })}
+                        className="rounded border border-border px-3 py-2"
+                      />
+                    </label>
+                    <SupplierSelector
+                      value={draft.supplierName}
+                      onChange={(value) => setDraft({ ...draft, supplierName: value })}
+                      className="w-full"
+                    />
+                    <div>
+                      <span className="text-sm font-semibold text-gray-700">対応事業部（複数選択可）</span>
+                      <div className="mt-2 flex flex-wrap gap-2 rounded border border-border px-3 py-2">
+                        {departments.map((dpt) => (
+                          <label key={dpt} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={draft.departments.includes(dpt)}
+                              onChange={() =>
+                                setDraft((prev) => ({
+                                  ...prev,
+                                  departments: prev.departments.includes(dpt)
+                                    ? prev.departments.filter((v) => v !== dpt)
+                                    : [...prev.departments, dpt],
+                                }))
+                              }
+                            />
+                            {dpt}
+                          </label>
+                        ))}
+                        {!departments.length && (
+                          <span className="text-sm text-gray-500">事業部がありません</span>
+                        )}
+                      </div>
+                    </div>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold text-gray-700">規格</span>
+                      <input
+                        placeholder="規格"
+                        value={draft.spec}
+                        onChange={(e) => setDraft({ ...draft, spec: e.target.value })}
+                        className="rounded border border-border px-3 py-2"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold text-gray-700">単位</span>
+                      <input
+                        placeholder="例: P, 個, kg"
+                        value={draft.unit ?? ''}
+                        onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+                        className="rounded border border-border px-3 py-2"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold text-gray-700">単価</span>
+                      <input
+                        placeholder="単価"
+                        inputMode="numeric"
+                        value={draft.cost ? draft.cost.toLocaleString('ja-JP') : ''}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/,/g, '');
+                          const num = Number(raw);
+                          if (Number.isNaN(num)) return;
+                          setDraft({ ...draft, cost: num });
+                        }}
+                        className="rounded border border-border px-3 py-2"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold text-gray-700">保存区分</span>
+                      <select
+                        value={draft.storageType}
+                        onChange={(e) => setDraft({ ...draft, storageType: e.target.value as Product['storageType'] })}
+                        className="rounded border border-border px-3 py-2"
+                      >
+                        <option value="冷凍">冷凍</option>
+                        <option value="冷蔵">冷蔵</option>
+                        <option value="常温">常温</option>
+                        <option value="その他">その他</option>
+                      </select>
+                    </label>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold text-gray-700">棚卸写真</span>
+                      <div className="flex flex-wrap gap-2">
+                        {(draft.imageUrls ?? []).map((img, idx) => (
+                          <div key={idx} className="relative">
+                            <img
+                              src={img}
+                              alt="preview"
+                              className="h-14 w-18 rounded border border-border object-cover"
+                            />
+                          </div>
+                        ))}
+                        {!(draft.imageUrls ?? []).length && (
+                          <span className="text-sm text-gray-500">棚卸写真が自動で添付されます</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
             </div>
-          </section>
-        )}
-      </div>
-      <div className="mt-4 border-t border-border pt-4">
-        <Button block onClick={handleConfirm} disabled={(locked ?? false) || (!selected && tab !== 'register')}>
-          商品を割り当てる
-        </Button>
+
+            <div className="sticky bottom-0 border-t border-border bg-white pb-2 pt-4">
+              <Button block onClick={handleConfirm} disabled={(locked ?? false) || (!selected && tab !== 'register')}>
+                商品を割り当てる
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </Modal>
   );
