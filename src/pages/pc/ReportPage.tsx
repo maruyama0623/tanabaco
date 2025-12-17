@@ -31,6 +31,7 @@ export function ReportPage() {
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [addQty, setAddQty] = useState<number | null>(null);
   const [addUnitCost, setAddUnitCost] = useState<number | null>(null);
+  const [reportTab, setReportTab] = useState<'report' | 'missing'>('report');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProd, setNewProd] = useState<{
     name: string;
@@ -206,29 +207,30 @@ export function ReportPage() {
   const currentMap = aggregate(currentSession?.photoRecords);
   const prevMap = aggregate(prevSession?.photoRecords);
 
-  const rows = Array.from(new Set([...currentMap.keys(), ...prevMap.keys()]))
+  const rows = Array.from(currentMap.keys())
     .map((productId) => {
       const curr = currentMap.get(productId);
+      if (!curr) return null;
       const prev = prevMap.get(productId);
-      const product = curr?.product ?? prev?.product ?? null;
+      const product = curr.product ?? prev?.product ?? null;
       const fallbackName =
-        curr?.product?.name ??
+        curr.product?.name ??
         prev?.product?.name ??
-        curr?.productCd ??
+        curr.productCd ??
         prev?.productCd ??
         '未設定';
       const fallbackUnit =
-        curr?.unit ??
+        curr.unit ??
         prev?.unit ??
-        curr?.product?.unit ??
+        curr.product?.unit ??
         prev?.product?.unit ??
         'P';
-      const fallbackCost = curr?.unitCost ?? prev?.unitCost ?? 0;
-      const unitCost = curr?.unitCost ?? fallbackCost;
+      const fallbackCost = curr.unitCost ?? prev?.unitCost ?? 0;
+      const unitCost = curr.unitCost ?? fallbackCost;
       const prevCost = prev?.unitCost ?? fallbackCost;
       const unit = fallbackUnit;
       const prevUnit = fallbackUnit;
-      const quantity = curr?.quantity ?? 0;
+      const quantity = curr.quantity ?? 0;
       const amount = quantity * unitCost;
       const prevQuantity = prev?.quantity ?? 0;
       const prevAmount = prevQuantity * prevCost;
@@ -236,9 +238,9 @@ export function ReportPage() {
         product: product ?? {
           id: productId,
           name: fallbackName,
-          productCd: curr?.productCd ?? prev?.productCd ?? '',
-          supplierName: curr?.productSupplierName ?? prev?.productSupplierName ?? '',
-          storageType: curr?.productStorageType ?? prev?.productStorageType,
+          productCd: curr.productCd ?? prev?.productCd ?? '',
+          supplierName: curr.productSupplierName ?? prev?.productSupplierName ?? '',
+          storageType: curr.productStorageType ?? prev?.productStorageType,
           cost: unitCost,
           unit,
           departments: [],
@@ -273,6 +275,38 @@ export function ReportPage() {
       qtyDiff: number;
       amountDiff: number;
     }[];
+
+  const missingRows = Array.from(prevMap.entries())
+    .filter(([productId]) => !currentMap.has(productId))
+    .map(([productId, prev]) => {
+      const product = prev.product ?? null;
+      const fallbackName = prev.product?.name ?? prev.productCd ?? '未設定';
+      const fallbackUnit = prev.unit ?? prev.product?.unit ?? 'P';
+      const prevQuantity = prev.quantity ?? 0;
+      const prevCost = prev.unitCost ?? 0;
+      const prevAmount = prevQuantity * prevCost;
+      return {
+        product: product ?? {
+          id: productId,
+          name: fallbackName,
+          productCd: prev.productCd ?? '',
+          supplierName: prev.productSupplierName ?? '',
+          storageType: prev.productStorageType ?? 'その他',
+          cost: prevCost,
+          unit: fallbackUnit,
+          spec: '',
+          departments: [],
+          supplierCd: '',
+          imageUrls: [],
+          createdAt: '',
+          updatedAt: '',
+        },
+        prevQuantity,
+        prevAmount,
+        prevCost,
+        prevUnit: fallbackUnit,
+      };
+    });
 
   const total = rows.reduce((acc, r) => acc + r.amount, 0);
   const prevTotal = rows.reduce((acc, r) => acc + r.prevAmount, 0);
@@ -318,15 +352,13 @@ export function ReportPage() {
     if (selectedProd && addUnitCost !== selectedProd.cost) {
       updateProduct(selectedProd.id, { cost: addUnitCost ?? selectedProd.cost });
     }
-    // セッションがない場合は選択中の月・事業部で暫定セッションを作成
-    const baseSession =
-      currentSession ||
-      startSession({
-        inventoryDate: `${selectedMonth}-01`,
-        department: selectedDept || selectedProd?.departments?.[0] || masterDepts[0] || '',
-        staff1: session?.staff1 ?? '',
-        staff2: session?.staff2 ?? '',
-      });
+    // 常に選択中の月・事業部でセッションを開始/切替えしてから追加する
+    const baseSession = startSession({
+      inventoryDate: `${selectedMonth}-01`,
+      department: selectedDept || selectedProd?.departments?.[0] || masterDepts[0] || '',
+      staff1: session?.staff1 ?? '',
+      staff2: session?.staff2 ?? '',
+    });
     if (!baseSession) return;
     addManualRecord({
       productId: selectedProductId,
@@ -393,6 +425,16 @@ export function ReportPage() {
                     }}
                   >
                     {isLocked ? '確定済み' : '棚卸を完了する'}
+                  </button>
+                  <button
+                    className="w-full px-4 py-3 text-left text-sm font-semibold hover:bg-muted disabled:text-gray-400"
+                    disabled={!!isLocked}
+                    onClick={() => {
+                      setShowDesktopMenu(false);
+                      setShowAddModal(true);
+                    }}
+                  >
+                    商品を追加する
                   </button>
                   <button
                     className="w-full px-4 py-3 text-left text-sm font-semibold hover:bg-muted"
@@ -479,13 +521,35 @@ export function ReportPage() {
           </div>
           <SummaryCard label="当月棚卸金額" value={formatYen(total)} full />
           <SummaryCard label="前月棚卸金額" value={formatYen(prevTotal)} full />
-          <SummaryCard
-            label="金額差異"
-            value={formatYen(diff)}
-            highlight={diff >= 0 ? 'text-primary' : 'text-red-500'}
-            full
-          />
+      <SummaryCard
+        label="金額差異"
+        value={formatYen(diff)}
+        highlight={diff >= 0 ? 'text-primary' : 'text-red-500'}
+        full
+      />
+    </div>
+        <div className="mb-3 flex gap-2">
+          <button
+            className={`rounded border px-4 py-2 text-sm font-semibold ${
+              reportTab === 'report' ? 'border-primary bg-primary text-white' : 'border-border bg-white text-gray-700'
+            }`}
+            onClick={() => setReportTab('report')}
+          >
+            棚卸表
+          </button>
+          <button
+            className={`rounded border px-4 py-2 text-sm font-semibold ${
+              reportTab === 'missing'
+                ? 'border-primary bg-primary text-white'
+                : 'border-border bg-white text-gray-700'
+            }`}
+            onClick={() => setReportTab('missing')}
+          >
+            棚卸漏れチェック
+          </button>
         </div>
+        {reportTab === 'report' && (
+        <>
         <div className="overflow-auto border border-border hidden md:block">
           <table className="min-w-full border-collapse text-sm">
             <thead className="bg-muted">
@@ -684,18 +748,125 @@ export function ReportPage() {
             </div>
           )}
         </div>
-      </div>
-      <div className="fixed bottom-0 left-0 right-0 bg-white px-4 pb-4 pt-3 shadow-[0_-8px_16px_-12px_rgba(0,0,0,0.2)] hidden md:block">
-        <div className="mx-auto w-full max-w-5xl">
-          <Button
-            variant="secondary"
-            className="w-full rounded-lg px-6 py-3 text-base font-semibold"
-            disabled={!!isLocked}
-            onClick={() => setShowAddModal(true)}
-          >
-            商品を追加する
-          </Button>
-        </div>
+        </>
+        )}
+
+        {reportTab === 'missing' && (
+          <>
+            <h3 className="mt-2 text-lg font-semibold text-gray-800">この商品、棚卸し漏れていませんか？</h3>
+            <div className="overflow-auto border border-border hidden md:block">
+              <table className="min-w-full border-collapse text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    {['商品CD', '商品名', '規格', '仕入先', '前月在庫', '前月棚卸金額', '前月単価', '操作'].map((h) => (
+                      <th key={h} className="border border-border px-3 py-2 text-left font-semibold">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {missingRows.map((row) => (
+                    <tr key={row.product.id} className="odd:bg-white even:bg-gray-50">
+                      <td className="border border-border px-3 py-2">{row.product.productCd}</td>
+                      <td className="border border-border px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          {row.product.storageType && (
+                            <span className="rounded bg-[#e6f1ff] px-2 py-0.5 text-xs text-primary">
+                              {row.product.storageType}
+                            </span>
+                          )}
+                          <span className="font-semibold">{row.product.name}</span>
+                        </div>
+                      </td>
+                      <td className="border border-border px-3 py-2">{row.product.spec}</td>
+                      <td className="border border-border px-3 py-2">{row.product.supplierName}</td>
+                      <td className="border border-border px-3 py-2">
+                        {formatNumber(row.prevQuantity)}
+                        {row.prevUnit || 'P'}
+                      </td>
+                      <td className="border border-border px-3 py-2">{formatYen(row.prevAmount)}</td>
+                      <td className="border border-border px-3 py-2">
+                        {formatYen(row.prevCost)}/{row.prevUnit || 'P'}
+                      </td>
+                      <td className="border border-border px-3 py-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setSelectedProductId(row.product.id);
+                            setAddUnitCost(row.prevCost);
+                            setAddQty(null);
+                            setShowAddModal(true);
+                          }}
+                        >
+                          追加
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!missingRows.length && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-6 text-center text-gray-500">
+                        先月棚卸があり今月未登録の商品はありません
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-3 md:hidden">
+              {missingRows.map((row) => (
+                <div key={row.product.id} className="rounded border border-border bg-white p-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs text-gray-500">{row.product.productCd}</div>
+                    {row.product.storageType && (
+                      <span className="rounded bg-[#e6f1ff] px-2 py-0.5 text-xs text-primary">
+                        {row.product.storageType}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-base font-semibold">{row.product.name}</div>
+                  <div className="text-sm text-gray-600">{row.product.spec}</div>
+                  <div className="mt-1 text-sm text-gray-600">{row.product.supplierName}</div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <div className="text-xs text-gray-500">前月在庫</div>
+                      <div className="font-semibold">
+                        {formatNumber(row.prevQuantity)}
+                        {row.prevUnit || 'P'}
+                      </div>
+                      <div className="text-xs text-gray-500">前月単価</div>
+                      <div className="font-semibold">
+                        {formatYen(row.prevCost)}/{row.prevUnit || 'P'}
+                      </div>
+                      <div className="text-xs text-gray-500">前月棚卸金額</div>
+                      <div className="font-semibold">{formatYen(row.prevAmount)}</div>
+                    </div>
+                    <div className="flex flex-col justify-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedProductId(row.product.id);
+                          setAddUnitCost(row.prevCost);
+                          setAddQty(null);
+                          setShowAddModal(true);
+                        }}
+                      >
+                        追加
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!missingRows.length && (
+                <div className="rounded border border-dashed border-border p-6 text-center text-gray-500">
+                  先月棚卸があり今月未登録の商品はありません
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
       <Modal open={showAddModal} onClose={() => setShowAddModal(false)}>
         <div className="space-y-4">
