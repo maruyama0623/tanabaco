@@ -11,6 +11,7 @@ import { useMasterStore } from '../../store/masterStore';
 import { requestAiSearch } from '../../services/aiSearchService';
 
 type Tab = 'ai' | 'search' | 'register';
+type LensState = { visible: boolean; x: number; y: number; width: number; height: number };
 
 export function AssignModal() {
   const navigate = useNavigate();
@@ -71,6 +72,10 @@ export function AssignModal() {
     [photo],
   );
   const [currentImage, setCurrentImage] = useState(photoImages[0] ?? '');
+  const [isDesktop, setIsDesktop] = useState<boolean>(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : false,
+  );
+  const [lens, setLens] = useState<LensState>({ visible: false, x: 0, y: 0, width: 0, height: 0 });
 
   const searchResults = useMemo(() => {
     const normalize = (s: string) => {
@@ -109,6 +114,12 @@ export function AssignModal() {
       setCurrentImage(photoImages[0]);
     }
   }, [photoImages]);
+
+  useEffect(() => {
+    const handler = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   // 既存商品の編集モードではフォームを最新の値で埋める
   useEffect(() => {
@@ -208,7 +219,22 @@ export function AssignModal() {
         <div className="flex flex-col gap-4 overflow-hidden lg:flex-row lg:gap-6 lg:max-h-[72vh]">
           <div className="w-full space-y-3 lg:w-1/2 lg:max-h-[72vh] lg:overflow-hidden">
             <h3 className="text-lg font-semibold">撮影した画像一覧</h3>
-            <div className="relative overflow-hidden rounded-lg border border-border bg-white shadow-sm">
+            <div
+              className="relative overflow-hidden rounded-lg border border-border bg-white shadow-sm"
+              onMouseEnter={(e) => {
+                if (!isDesktop || !primaryPhotoUrl) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                setLens({ visible: true, x: 0, y: 0, width: rect.width, height: rect.height });
+              }}
+              onMouseLeave={() => setLens((prev) => ({ ...prev, visible: false }))}
+              onMouseMove={(e) => {
+                if (!isDesktop || !primaryPhotoUrl) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                setLens({ visible: true, x, y, width: rect.width, height: rect.height });
+              }}
+            >
               {primaryPhotoUrl ? (
                 <img
                   src={primaryPhotoUrl}
@@ -217,6 +243,19 @@ export function AssignModal() {
                 />
               ) : (
                 <div className="flex h-[320px] items-center justify-center text-sm text-gray-500">画像がありません</div>
+              )}
+              {isDesktop && lens.visible && primaryPhotoUrl && lens.width > 0 && lens.height > 0 && (
+                <div
+                  className="pointer-events-none absolute hidden h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary shadow-lg lg:block"
+                  style={{
+                    top: lens.y,
+                    left: lens.x,
+                    backgroundImage: `url(${primaryPhotoUrl})`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: `${lens.width * 2}px ${lens.height * 2}px`,
+                    backgroundPosition: `${-(lens.x * 2 - 64)}px ${-(lens.y * 2 - 64)}px`,
+                  }}
+                />
               )}
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2">
