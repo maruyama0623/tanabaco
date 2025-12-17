@@ -215,9 +215,9 @@ export function AssignModal() {
 
   return (
     <Modal open onClose={close}>
-      <div className="max-h-[80vh] pr-1">
-        <div className="flex flex-col gap-4 overflow-hidden lg:flex-row lg:gap-6 lg:max-h-[72vh]">
-          <div className="w-full space-y-3 lg:w-1/2 lg:max-h-[72vh] lg:overflow-hidden">
+      <div className="flex max-h-[80vh] flex-col overflow-hidden pr-1">
+        <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden lg:flex-row lg:gap-6">
+          <div className="hidden space-y-3 lg:block lg:w-1/2 lg:max-h-[72vh] lg:overflow-hidden">
             <h3 className="text-lg font-semibold">撮影した画像一覧</h3>
             <div
               className="relative overflow-hidden rounded-lg border border-border bg-white shadow-sm"
@@ -239,7 +239,7 @@ export function AssignModal() {
                 <img
                   src={primaryPhotoUrl}
                   alt="撮影画像"
-                  className="h-full w-full max-h-[360px] bg-gray-50 object-contain"
+                  className="h-full w-full max-h-[240px] bg-gray-50 object-contain md:max-h-[320px] lg:max-h-[360px]"
                 />
               ) : (
                 <div className="flex h-[320px] items-center justify-center text-sm text-gray-500">画像がありません</div>
@@ -273,7 +273,7 @@ export function AssignModal() {
             </div>
           </div>
 
-          <div className="relative flex w-full flex-col gap-3 lg:w-1/2 lg:max-h-[72vh] lg:overflow-hidden">
+          <div className="relative flex w-full min-h-0 flex-col gap-3 lg:w-1/2 lg:max-h-[72vh] lg:overflow-hidden">
             <div className="flex gap-2 shrink-0">
               {tabs.map((t) => (
                 <button
@@ -294,7 +294,7 @@ export function AssignModal() {
               </div>
             )}
 
-            <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+            <div className="flex-1 space-y-4 overflow-y-auto pr-1 min-h-0">
               {tab === 'ai' && (
                 <section className="space-y-3">
                   <h3 className="text-lg font-semibold">AI検索</h3>
