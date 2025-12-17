@@ -215,7 +215,7 @@ export function AssignModal() {
 
   return (
     <Modal open onClose={close}>
-      <div className="flex max-h-[80vh] flex-col overflow-hidden pr-1">
+      <div className="flex max-h-[80vh] flex-col overflow-hidden pr-1 sm:max-h-[85vh]">
         <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden lg:flex-row lg:gap-6">
           <div className="hidden space-y-3 lg:block lg:w-1/2 lg:max-h-[72vh] lg:overflow-hidden">
             <h3 className="text-lg font-semibold">撮影した画像一覧</h3>
