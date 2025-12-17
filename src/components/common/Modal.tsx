@@ -7,7 +7,7 @@ interface Props {
 export function Modal({ open, onClose, children }: Props) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10">
+    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 px-2 py-4 sm:px-4 sm:py-10">
       <div className="min-w-[320px] max-w-5xl flex-1 rounded-lg bg-white shadow-xl">
         <div className="flex justify-end p-4">
           <button
