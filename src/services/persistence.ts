@@ -1,6 +1,10 @@
 import { InventorySession, MasterData, Product } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:4000/api';
+const LS_PRODUCTS = 'tanabaco_products';
+const LS_SESSION = 'tanabaco_session';
+const LS_HISTORY = 'tanabaco_history';
+const LS_MASTERS = 'tanabaco_masters';
 
 export interface PersistenceProvider {
   getProducts(): Product[];
@@ -90,6 +94,9 @@ export const apiPersistence: PersistenceProvider = {
   },
   saveProducts(products) {
     cacheProducts = products;
+    try {
+      localStorage.setItem(LS_PRODUCTS, JSON.stringify(products));
+    } catch {}
     void api.saveProducts(products).catch((e) => console.warn('api saveProducts error', e));
   },
   getSession() {
@@ -97,6 +104,9 @@ export const apiPersistence: PersistenceProvider = {
   },
   saveSession(session) {
     cacheSession = session;
+    try {
+      localStorage.setItem(LS_SESSION, JSON.stringify(session));
+    } catch {}
     void api.saveSession(session).catch((e) => console.warn('api saveSession error', e));
   },
   getHistory() {
@@ -104,6 +114,9 @@ export const apiPersistence: PersistenceProvider = {
   },
   saveHistory(history) {
     cacheHistory = history;
+    try {
+      localStorage.setItem(LS_HISTORY, JSON.stringify(history));
+    } catch {}
     void api.saveHistory(history).catch((e) => console.warn('api saveHistory error', e));
   },
   getMasters() {
@@ -111,6 +124,9 @@ export const apiPersistence: PersistenceProvider = {
   },
   saveMasters(masters) {
     cacheMasters = masters;
+    try {
+      localStorage.setItem(LS_MASTERS, JSON.stringify(masters));
+    } catch {}
     void api.saveMasters(masters).catch((e) => console.warn('api saveMasters error', e));
   },
 };
@@ -119,17 +135,31 @@ export const persistence = apiPersistence;
 
 export async function hydratePersistence() {
   try {
-    const [products, session, history, masters] = await Promise.all([
+    const [apiProducts, apiSession, apiHistory, apiMasters] = await Promise.all([
       api.getProducts().catch(() => null),
       api.getSession().catch(() => null),
       api.getHistory().catch(() => null),
       api.getMasters().catch(() => null),
     ]);
 
-    cacheProducts = (products as Product[]) ?? [];
-    cacheSession = (session as InventorySession | null) ?? null;
-    cacheHistory = (history as InventorySession[]) ?? [];
-    cacheMasters = (masters as MasterData | null) ?? null;
+    // local fallback
+    let lsProducts: Product[] | null = null;
+    let lsSession: InventorySession | null = null;
+    let lsHistory: InventorySession[] | null = null;
+    let lsMasters: MasterData | null = null;
+    try {
+      lsProducts = JSON.parse(localStorage.getItem(LS_PRODUCTS) ?? 'null');
+      lsSession = JSON.parse(localStorage.getItem(LS_SESSION) ?? 'null');
+      lsHistory = JSON.parse(localStorage.getItem(LS_HISTORY) ?? 'null');
+      lsMasters = JSON.parse(localStorage.getItem(LS_MASTERS) ?? 'null');
+    } catch {
+      // ignore parse errors
+    }
+
+    cacheProducts = (apiProducts as Product[]) ?? lsProducts ?? [];
+    cacheSession = (apiSession as InventorySession | null) ?? lsSession ?? null;
+    cacheHistory = (apiHistory as InventorySession[]) ?? lsHistory ?? [];
+    cacheMasters = (apiMasters as MasterData | null) ?? lsMasters ?? null;
 
     // hydrate zustand stores directly
     const { useProductStore } = await import('../store/productStore');

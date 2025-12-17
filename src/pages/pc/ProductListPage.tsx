@@ -237,7 +237,7 @@ export function ProductListPage() {
           <table className="min-w-full border-collapse text-sm">
             <thead className="bg-muted">
               <tr>
-                {['商品CD', '商品名', '規格', '仕入先', '単価', '単位', '区分', '対応事業部', '操作'].map((h) => (
+                {['画像', '商品CD', '商品名', '規格', '仕入先', '単価', '単位', '区分', '対応事業部', '操作'].map((h) => (
                   <th key={h} className="border border-border px-3 py-2 text-left font-semibold">
                     {h}
                   </th>
@@ -247,6 +247,15 @@ export function ProductListPage() {
             <tbody>
               {filtered.map((prod) => (
                 <tr key={prod.id} className="odd:bg-white even:bg-gray-50">
+                  <td className="border border-border px-3 py-2">
+                    {prod.imageUrls?.length ? (
+                      <img src={prod.imageUrls[0]} alt={prod.name} className="h-14 w-14 rounded object-cover" />
+                    ) : (
+                      <div className="flex h-14 w-14 items-center justify-center rounded border border-dashed border-border text-[11px] text-gray-400">
+                        画像なし
+                      </div>
+                    )}
+                  </td>
                   <td className="border border-border px-3 py-2">{prod.productCd}</td>
                   <td className="border border-border px-3 py-2">
                     <div className="font-semibold">{prod.name}</div>
@@ -280,7 +289,7 @@ export function ProductListPage() {
               ))}
               {!filtered.length && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-gray-500">
+                  <td colSpan={10} className="px-4 py-6 text-center text-gray-500">
                     対象の商品がありません
                   </td>
                 </tr>
@@ -291,20 +300,31 @@ export function ProductListPage() {
         <div className="space-y-3 md:hidden">
           {filtered.map((prod) => (
             <div key={prod.id} className="rounded border border-border bg-white p-3 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">{prod.productCd}</div>
-                {prod.storageType && <Tag label={prod.storageType} />}
-              </div>
-              <div className="text-base font-semibold">{prod.name}</div>
-              <div className="text-sm text-gray-600">{prod.spec}</div>
-              <div className="text-sm text-gray-600">{prod.supplierName}</div>
-              <div className="mt-1 text-sm text-gray-600">
-                {formatYen(prod.cost)} / {prod.unit ?? 'P'}
-              </div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {(prod.departments ?? []).map((d) => (
-                  <Tag key={d} label={d} />
-                ))}
+              <div className="flex items-start gap-3">
+                {prod.imageUrls?.length ? (
+                  <img src={prod.imageUrls[0]} alt={prod.name} className="h-16 w-16 flex-shrink-0 rounded object-cover" />
+                ) : (
+                  <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded border border-dashed border-border text-[11px] text-gray-400">
+                    画像なし
+                  </div>
+                )}
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-gray-500">{prod.productCd}</div>
+                    {prod.storageType && <Tag label={prod.storageType} />}
+                  </div>
+                  <div className="text-base font-semibold">{prod.name}</div>
+                  <div className="text-sm text-gray-600">{prod.spec}</div>
+                  <div className="text-sm text-gray-600">{prod.supplierName}</div>
+                  <div className="mt-1 text-sm text-gray-600">
+                    {formatYen(prod.cost)} / {prod.unit ?? 'P'}
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {(prod.departments ?? []).map((d) => (
+                      <Tag key={d} label={d} />
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="mt-2 flex gap-2">
                 <Button size="sm" className="flex-1" onClick={() => openEdit(prod)}>
