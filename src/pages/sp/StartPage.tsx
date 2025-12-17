@@ -19,6 +19,14 @@ export function StartPage() {
   const [staff2, setStaff2] = useState('');
 
   const handleSubmit = () => {
+    if (!department.trim()) {
+      alert('事業部を選択してください');
+      return;
+    }
+    if (!staff1.trim()) {
+      alert('担当者①を選択してください');
+      return;
+    }
     startSession({ inventoryDate, department, staff1, staff2 });
     navigate('/list');
   };
