@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '../../components/layout/AppHeader';
 import { Button } from '../../components/common/Button';
@@ -21,6 +21,10 @@ export function PhotoListPage() {
   const locked = session.isLocked;
   const visiblePhotos = session.photoRecords.filter(
     (p) => (p.imageUrls?.length ?? 0) > 0 || !!p.imageUrl,
+  );
+  const captureMode = useMemo(
+    () => (typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent) ? 'camera' : 'environment'),
+    [],
   );
 
   const handleSelect = async (fileList: FileList | null) => {
@@ -71,13 +75,18 @@ export function PhotoListPage() {
             ref={inputRef}
             type="file"
             accept="image/*"
-            capture="environment"
+            capture={captureMode as 'user' | 'environment'}
             className="hidden"
             onChange={(e) => handleSelect(e.target.files)}
           />
           <Button
             block
-            onClick={() => inputRef.current?.click()}
+            onClick={() => {
+              if (inputRef.current) {
+                inputRef.current.value = '';
+                inputRef.current.click();
+              }
+            }}
             disabled={locked}
           >
             写真を撮る
