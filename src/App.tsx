@@ -22,7 +22,7 @@ function App() {
     void hydratePersistence();
   }, []);
 
-  // 安全保存: 未ロックセッションがある場合は定期保存＋離脱警告
+  // 安全保存: 未ロックセッションがある場合は定期保存
   useEffect(() => {
     const saveTick = setInterval(() => {
       const current = useSessionStore.getState().session;
@@ -30,17 +30,8 @@ function App() {
         useSessionStore.getState().saveSessionImmediate?.(current);
       }
     }, 5000);
-    const beforeUnload = (e: BeforeUnloadEvent) => {
-      const current = useSessionStore.getState().session;
-      if (current && !current.isLocked) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-    window.addEventListener('beforeunload', beforeUnload);
     return () => {
       clearInterval(saveTick);
-      window.removeEventListener('beforeunload', beforeUnload);
     };
   }, []);
 
