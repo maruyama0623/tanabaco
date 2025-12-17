@@ -9,6 +9,7 @@ interface SessionState {
   session: InventorySession | null;
   history: InventorySession[];
   startSession: (payload: Omit<InventorySession, 'id' | 'photoRecords'>) => InventorySession;
+  saveSessionImmediate: (session: InventorySession) => void;
   addPhoto: (imageUrls: string[]) => PhotoRecord | null;
   addManualRecord: (payload: {
     productId: string;
@@ -64,6 +65,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
     return normalized;
   })(),
+  saveSessionImmediate: (session) => {
+    persistence.saveSession(session);
+    set({ session });
+  },
   startSession: (payload) => {
     const prev = get().session;
     const history = get().history;

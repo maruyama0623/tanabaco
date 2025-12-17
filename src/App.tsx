@@ -14,11 +14,34 @@ import { DepartmentListPage } from './pages/pc/DepartmentListPage';
 import { StaffListPage } from './pages/pc/StaffListPage';
 import { SupplierListPage } from './pages/pc/SupplierListPage';
 import { hydratePersistence } from './services/persistence';
+import { useSessionStore } from './store/sessionStore';
 
 function App() {
   // 初回マウント時にのみ最新データを取得
   useEffect(() => {
     void hydratePersistence();
+  }, []);
+
+  // 安全保存: 未ロックセッションがある場合は定期保存＋離脱警告
+  useEffect(() => {
+    const saveTick = setInterval(() => {
+      const current = useSessionStore.getState().session;
+      if (current && !current.isLocked) {
+        useSessionStore.getState().saveSessionImmediate?.(current);
+      }
+    }, 5000);
+    const beforeUnload = (e: BeforeUnloadEvent) => {
+      const current = useSessionStore.getState().session;
+      if (current && !current.isLocked) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => {
+      clearInterval(saveTick);
+      window.removeEventListener('beforeunload', beforeUnload);
+    };
   }, []);
 
   return (
