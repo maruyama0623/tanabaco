@@ -18,24 +18,6 @@ export function StartPage() {
   const [staff1, setStaff1] = useState('');
   const [staff2, setStaff2] = useState('');
 
-  useEffect(() => {
-    if (!department && departments.length) {
-      setDepartment(departments[0]);
-    }
-  }, [department, departments]);
-
-  useEffect(() => {
-    if (!staff1 && staffOptions.length) {
-      setStaff1(staffOptions[0]);
-    }
-  }, [staff1, staffOptions]);
-
-  useEffect(() => {
-    if (!staff2 && staffOptions.length) {
-      setStaff2(staffOptions[1] ?? staffOptions[0]);
-    }
-  }, [staff2, staffOptions]);
-
   const handleSubmit = () => {
     startSession({ inventoryDate, department, staff1, staff2 });
     navigate('/list');
@@ -61,28 +43,37 @@ export function StartPage() {
           </Field>
           <Field label="事業部">
             <Select value={department} onChange={(e) => setDepartment(e.target.value)}>
+              <option value="">事業部を選択してください</option>
               {departments.length ? (
                 departments.map((d) => <option key={d}>{d}</option>)
               ) : (
-                <option value="">事業部を追加してください</option>
+                <option value="" disabled>
+                  事業部を追加してください
+                </option>
               )}
             </Select>
           </Field>
           <Field label="担当者①">
             <Select value={staff1} onChange={(e) => setStaff1(e.target.value)}>
+              <option value="">担当者を選択してください</option>
               {staffOptions.length ? (
                 staffOptions.map((s) => <option key={s}>{s}</option>)
               ) : (
-                <option value="">担当者を追加してください</option>
+                <option value="" disabled>
+                  担当者を追加してください
+                </option>
               )}
             </Select>
           </Field>
           <Field label="担当者②">
             <Select value={staff2} onChange={(e) => setStaff2(e.target.value)}>
+              <option value="">担当者を選択してください</option>
               {staffOptions.length ? (
                 staffOptions.map((s) => <option key={s}>{s}</option>)
               ) : (
-                <option value="">担当者を追加してください</option>
+                <option value="" disabled>
+                  担当者を追加してください
+                </option>
               )}
             </Select>
           </Field>
