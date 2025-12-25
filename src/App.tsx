@@ -8,7 +8,6 @@ import { AssignListPage } from './pages/pc/AssignListPage';
 import { AssignModal } from './pages/pc/AssignModal';
 import { ReportPage } from './pages/pc/ReportPage';
 import { ProductListPage } from './pages/pc/ProductListPage';
-import { MasterPage } from './pages/pc/MasterPage';
 import { DepartmentListPage } from './pages/pc/DepartmentListPage';
 import { StaffListPage } from './pages/pc/StaffListPage';
 import { SupplierListPage } from './pages/pc/SupplierListPage';
@@ -46,7 +45,6 @@ function App() {
       </Route>
       <Route path="/report" element={<ReportPage />} />
       <Route path="/products" element={<ProductListPage />} />
-      <Route path="/masters" element={<MasterPage />} />
       <Route path="/departments" element={<DepartmentListPage />} />
       <Route path="/staff" element={<StaffListPage />} />
       <Route path="/suppliers" element={<SupplierListPage />} />
