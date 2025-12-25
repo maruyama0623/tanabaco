@@ -53,10 +53,6 @@ function App() {
       <Route path="/staff" element={<StaffListPage />} />
       <Route path="/suppliers" element={<SupplierListPage />} />
 
-      {/* legacy paths for compatibility */}
-      <Route path="/sp/*" element={<Navigate to="/start" replace />} />
-      <Route path="/pc/*" element={<Navigate to="/assign" replace />} />
-
       <Route path="*" element={<Navigate to="/start" replace />} />
     </Routes>
   );
