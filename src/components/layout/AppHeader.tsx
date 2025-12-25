@@ -11,8 +11,8 @@ export function AppHeader({ title, rightSlot, rightSlotMobile }: Props) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const menuItems = [
-    { label: '棚卸開始', to: '/start' },
-    { label: '商品割り当て', to: '/assign' },
+    { label: '棚卸セッション開始', to: '/start' },
+    { label: '商品割当一覧', to: '/assign' },
     { label: '棚卸表', to: '/report' },
     { label: '商品一覧', to: '/products' },
     { label: '事業部一覧', to: '/departments' },
