@@ -6,7 +6,6 @@ import { CameraPage } from './pages/sp/CameraPage';
 import { CountPage } from './pages/sp/CountPage';
 import { AssignListPage } from './pages/pc/AssignListPage';
 import { AssignModal } from './pages/pc/AssignModal';
-import { AssignedDetailPage } from './pages/pc/AssignedDetailPage';
 import { ReportPage } from './pages/pc/ReportPage';
 import { ProductListPage } from './pages/pc/ProductListPage';
 import { MasterPage } from './pages/pc/MasterPage';
@@ -45,7 +44,6 @@ function App() {
       <Route path="/assign/*" element={<AssignListPage />}>
         <Route path="modal/:photoId" element={<AssignModal />} />
       </Route>
-      <Route path="/assigned" element={<AssignedDetailPage />} />
       <Route path="/report" element={<ReportPage />} />
       <Route path="/products" element={<ProductListPage />} />
       <Route path="/masters" element={<MasterPage />} />
